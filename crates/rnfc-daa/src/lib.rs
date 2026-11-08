@@ -1,3 +1,4 @@
+pub mod trajectory;
 use std::collections::BinaryHeap;
 use std::cmp::Ordering;
 
@@ -181,7 +182,7 @@ pub fn plan_astar(
     path.reverse();
 
     let simplified: Vec<[f32; 2]> = path.iter().enumerate()
-        .filter(|(k, _)| k % 5 == 0 || *k == path.len() - 1)
+        .filter(|(k, _)| k % 10 == 0 || *k == path.len() - 1)
         .map(|(_, p)| *p)
         .collect();
 
