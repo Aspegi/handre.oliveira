@@ -1,0 +1,16 @@
+﻿[workspace]
+resolver = "2"
+members = [
+    "crates/rnfc-abstractions",
+    "crates/rnfc-core",
+    "crates/rnfc-backend-sitl",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
