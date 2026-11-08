@@ -18,6 +18,7 @@ version = "0.1.0"
 dependencies = [
  "rnfc-abstractions",
  "rnfc-core",
+ "rnfc-daa",
 ]
 
 [[package]]
@@ -26,4 +27,12 @@ version = "0.1.0"
 dependencies = [
  "libm",
  "rnfc-abstractions",
+]
+
+[[package]]
+name = "rnfc-daa"
+version = "0.1.0"
+dependencies = [
+ "rnfc-abstractions",
+ "rnfc-core",
 ]
