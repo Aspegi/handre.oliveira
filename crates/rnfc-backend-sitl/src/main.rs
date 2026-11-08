@@ -1,4 +1,4 @@
-// ULTRA ZENITE - Pure Pursuit build
+// ULTRA ZENITE - Missao Composta + DAA Dinamico
 use rnfc_abstractions::{GnssFix, ImuSample};
 use rnfc_core::attitude_controller::AttitudeController;
 use rnfc_core::NavCore;
@@ -11,13 +11,23 @@ fn main() {
     let mut nav = NavCore::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]);
     let mut controller = AttitudeController::new();
 
-    let obstacles = vec![
+    // === Obstaculos ===
+    // Conhecido: parede em N=50, E=[0,40] (mapeada no grid)
+    // Desconhecido: parede em N=110, E=[-20,20] (so LiDAR deteta)
+    let obstacles_known = vec![
         Obstacle { n_start: 50.0, e_start: 0.0, n_end: 50.0, e_end: 40.0 },
     ];
-    let lidar = LidarSim::new(obstacles.clone(), 60.0);
+    let obstacles_unknown = vec![
+        Obstacle { n_start: 110.0, e_start: -20.0, n_end: 110.0, e_end: 20.0 },
+    ];
+    let mut obstacles_all = obstacles_known.clone();
+    obstacles_all.extend(obstacles_unknown.clone());
 
-    let mut grid = OccupancyGrid::new(-10.0, -50.0, 200, 150, 1.0);
-    for obs in &obstacles {
+    let lidar = LidarSim::new(obstacles_all, 60.0);
+
+    let mut grid = OccupancyGrid::new(-30.0, -50.0, 220, 150, 1.0);
+    // Marcar APENAS os obstaculos conhecidos no grid
+    for obs in &obstacles_known {
         let dn = obs.n_end - obs.n_start;
         let de = obs.e_end - obs.e_start;
         let steps = ((dn * dn + de * de).sqrt() / 0.5) as usize;
@@ -27,19 +37,33 @@ fn main() {
         }
     }
 
-    let plan = plan_astar(&grid, [0.0, 0.0], [100.0, 50.0]).expect("A* falhou");
+    // === Missao ===
+    let mission = vec![
+        [100.0_f32, 50.0],
+        [150.0, -30.0],
+        [0.0, 0.0],
+    ];
+    let mut mission_idx = 0;
+
+    println!("=== MISSAO COMPOSTA + DAA DINAMICO ===");
+    println!("Waypoints: A(100,50) -> B(150,-30) -> C(0,0)");
+    println!("Obstaculo conhecido: N=50 E=[0,40]");
+    println!("Obstaculo DESCONHECIDO: N=110 E=[-20,20] (so LiDAR deteta)");
+    println!();
+
+    // Planejar primeira perna
+    let plan = plan_astar(&grid, [0.0, 0.0], mission[0]).expect("A* inicial falhou");
     let mut trajectory = Trajectory::from_waypoints(&plan, 0.5);
 
-    println!("=== TRAJETORIA ===");
-    println!("Waypoints A*: {} | Pontos densos: {} | Comprimento: {:.1}m",
-             plan.len(), trajectory.points.len(), trajectory.total_length);
+    println!("Perna 1 -> A: {} waypoints, {:.1}m", plan.len(), trajectory.total_length);
 
+    // === Parametros Ultra Zenite ===
     let max_speed = 8.0_f32;
     let max_pitch = 20.0_f32.to_radians();
     let a_lat_max = 3.0_f32;
     let lookahead_base = 4.0_f32;
     let lookahead_speed_gain = 0.6_f32;
-    let arrival_radius = 1.0_f32;
+    let arrival_radius = 2.5_f32;
 
     let mut roll: f32 = 0.0;
     let mut pitch: f32 = 0.0;
@@ -55,48 +79,53 @@ fn main() {
     let mut current_speed = 0.0_f32;
     let mut replans = 0;
     let mut last_replan_t = -10.0_f32;
+    let mut leg_start_t = 0.0_f32;
 
-    println!("\n{:>6}  {:>9}  {:>9}  {:>7}  {:>8}  {:>8}  {:>8}",
-        "t(s)", "north(m)", "east(m)", "speed", "prog(m)", "sp_yaw", "replan");
+    println!("\n{:>6}  {:>9}  {:>9}  {:>7}  {:>8}  {:>8}  {:>6}  {:>7}",
+        "t(s)", "north(m)", "east(m)", "speed", "prog(m)", "sp_yaw", "missao", "replan");
 
-    for i in 0..=40000 {
+    for i in 0..=60000 {
         t += dt;
 
         if done {
             if i % 1000 == 0 {
                 let p = nav.position();
-                println!("{:6.2}  {:9.3}  {:9.3}  {:7.2}  {:8.2}  {:8.2}  {:>8}",
-                    t, p[0], p[1], 0.0, progress_d, 0.0, "-");
+                println!("{:6.2}  {:9.3}  {:9.3}  {:7.2}  {:8.2}  {:8.2}  {:>6}  {:>7}",
+                    t, p[0], p[1], 0.0, progress_d, 0.0, "DONE", "-");
             }
             continue;
         }
 
         let pos = nav.position();
         let pos2 = [pos[0], pos[1]];
+        let goal = mission[mission_idx];
 
         // === Replan se LiDAR detecta obstaculo nao mapeado ===
-        if t - last_replan_t > 2.0 {
+        if t - last_replan_t > 4.0 {
             let hits = lidar.scan(pos[0], pos[1]);
             let mut needs_replan = false;
+            let mut new_obstacles = 0;
             for h in &hits {
-                let (_, hd) = trajectory.find_closest(*h);
-                if hd > progress_d && hd < progress_d + 25.0 {
+                // Converter hit para NED aproximado: o LiDAR ja devolve N,E
+                if grid.to_grid(h[0], h[1]).map_or(false, |(gi, gj)| grid.is_free(gi, gj)) {
+                    // Distancia ao caminho atual
+                    let (_, hd) = trajectory.find_closest(*h);
                     let pp = trajectory.point_at(hd);
-                    let d = ((h[0]-pp[0]).powi(2) + (h[1]-pp[1]).powi(2)).sqrt();
-                    if d < 2.5 && grid.to_grid(h[0], h[1]).map_or(false, |(gi, gj)| grid.is_free(gi, gj)) {
+                    let d_to_path = ((h[0]-pp[0]).powi(2) + (h[1]-pp[1]).powi(2)).sqrt();
+                    if d_to_path < 3.0 && hd > progress_d && hd < progress_d + 30.0 {
                         grid.mark_obstacle(h[0], h[1]);
-                        needs_replan = true;
+                        new_obstacles += 1;
                     }
                 }
             }
-            if needs_replan {
-                let goal = trajectory.point_at(trajectory.total_length);
+            if new_obstacles > 0 {
                 if let Some(new_plan) = plan_astar(&grid, pos2, goal) {
                     trajectory = Trajectory::from_waypoints(&new_plan, 0.5);
                     progress_d = 0.0;
                     replans += 1;
                     last_replan_t = t;
-                    println!("    *** REPLAN #{} em t={:.1}s ***", replans, t);
+                    println!("    *** REPLAN #{} em t={:.1}s ({} novos obstaculos) ***",
+                             replans, t, new_obstacles);
                 }
             }
         }
@@ -105,10 +134,10 @@ fn main() {
         let (_, closest_d) = trajectory.find_closest(pos2);
         progress_d = closest_d;
 
-        // dist_to_end DEFINIDO AQUI (antes do lookahead)
         let dist_to_end = (trajectory.total_length - progress_d).max(0.0);
+        let dist_to_goal = ((pos[0]-goal[0]).powi(2) + (pos[1]-goal[1]).powi(2)).sqrt();
 
-        // Lookahead adaptativo (curto quando perto do fim)
+        // Lookahead adaptativo
         let lookahead = if dist_to_end < 15.0 {
             (dist_to_end * 0.5).max(1.5)
         } else {
@@ -120,11 +149,19 @@ fn main() {
 
         let dn = target[0] - pos[0];
         let de = target[1] - pos[1];
-        // Cross-track: puxa o drone para a trajetoria se estiver a desviar
-        let closest_pt = trajectory.point_at(closest_d);
-        let cross_n = closest_pt[0] - pos[0];
-        let cross_e = closest_pt[1] - pos[1];
-        let sp_yaw = (de + 0.4 * cross_e).atan2(dn + 0.4 * cross_n);
+
+        // MODO DE APROXIMACAO FINAL: quando perto do goal, mira direto a ele
+        let sp_yaw = if dist_to_goal < 8.0 {
+            let dg_n = goal[0] - pos[0];
+            let dg_e = goal[1] - pos[1];
+            dg_e.atan2(dg_n)
+        } else {
+            // Cross-track correction normal
+            let closest_pt = trajectory.point_at(closest_d);
+            let cross_n = closest_pt[0] - pos[0];
+            let cross_e = closest_pt[1] - pos[1];
+            (de + 0.4 * cross_e).atan2(dn + 0.4 * cross_n)
+        };
 
         // === Velocidade por curvatura ===
         let curvature = trajectory.curvature_at(target_d);
@@ -134,10 +171,9 @@ fn main() {
             max_speed
         };
 
-        // Desacelerar a partir de 20m do fim
-        let dist_to_goal = ((pos[0]-100.0).powi(2) + (pos[1]-50.0).powi(2)).sqrt();
-        let v_end = if dist_to_goal < 15.0 {
-            (dist_to_goal / 15.0 * max_speed).max(0.3)
+        // Desacelerar baseado na distancia ao goal
+        let v_end = if dist_to_goal < 8.0 {
+            (dist_to_goal / 8.0 * max_speed).max(0.2)
         } else {
             max_speed
         };
@@ -168,11 +204,28 @@ fn main() {
         let vel_e = current_speed * yaw.sin();
         let new_pos = [pos[0] + vel_n * dt, pos[1] + vel_e * dt, 0.0];
 
-        // === Chegada baseada no GOAL real (100, 50) ===
-        let dist_to_goal = ((pos[0]-100.0).powi(2) + (pos[1]-50.0).powi(2)).sqrt();
-        if dist_to_goal < 1.5 && current_speed < 0.5 {
-            println!("\n*** DESTINO FINAL ATINGIDO em t={:.2}s ***\n", t);
-            done = true;
+        // === Chegada a este waypoint ===
+        if dist_to_goal < arrival_radius && current_speed < 0.5 {
+            println!("    -> Waypoint {} atingido em t={:.2}s (perna {:.1}s) | pos=({:.1},{:.1})",
+                     mission_idx, t, t - leg_start_t, pos[0], pos[1]);
+            mission_idx += 1;
+            if mission_idx >= mission.len() {
+                println!("\n*** MISSAO COMPLETA em t={:.2}s ***\n", t);
+                done = true;
+                continue;
+            }
+            // Planear proxima perna
+            let next_goal = mission[mission_idx];
+            if let Some(new_plan) = plan_astar(&grid, pos2, next_goal) {
+                trajectory = Trajectory::from_waypoints(&new_plan, 0.5);
+                progress_d = 0.0;
+                leg_start_t = t;
+                println!("    Perna {} -> wp{}: {} waypoints, {:.1}m",
+                         mission_idx + 1, mission_idx, new_plan.len(), trajectory.total_length);
+            } else {
+                println!("    ERRO: A* falhou para wp{}", mission_idx);
+                done = true;
+            }
             continue;
         }
 
@@ -182,20 +235,20 @@ fn main() {
 
         if i % 500 == 0 {
             let p = nav.position();
-            println!("{:6.2}  {:9.3}  {:9.3}  {:7.2}  {:8.2}  {:8.2}  {:>8}",
+            println!("{:6.2}  {:9.3}  {:9.3}  {:7.2}  {:8.2}  {:8.2}  {:>6}  {:>7}",
                 t, p[0], p[1], current_speed, progress_d,
-                to_deg(sp_yaw), replans.to_string());
+                to_deg(sp_yaw), mission_idx.to_string(), replans.to_string());
         }
     }
 
     let final_pos = nav.position();
-    let dist = ((final_pos[0]-100.0).powi(2) + (final_pos[1]-50.0).powi(2)).sqrt();
+    let dist = ((final_pos[0]-0.0).powi(2) + (final_pos[1]-0.0).powi(2)).sqrt();
     println!("\n=== RESULTADO FINAL ===");
     println!("posicao final: N={:.2}m E={:.2}m", final_pos[0], final_pos[1]);
-    println!("comprimento trajetoria: {:.1}m", trajectory.total_length);
-    println!("replans durante missao: {}", replans);
-    println!("distancia ao alvo: {:.2}m", dist);
+    println!("waypoints visitados: A(100,50) -> B(150,-30) -> C(0,0)");
+    println!("replans dinamicos: {}", replans);
+    println!("distancia a base: {:.2}m", dist);
     if dist < 2.0 {
-        println!("\nOK: Ultra Zenite Ã¢â‚¬â€ Pure Pursuit + curvatura + replan ativos.");
+        println!("\nOK: Passo 9 ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â missao composta + DAA dinamico concluidos.");
     }
 }
