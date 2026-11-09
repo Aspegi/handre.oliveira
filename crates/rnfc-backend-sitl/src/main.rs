@@ -1,10 +1,12 @@
-// ULTRA ZENITE - Missao Composta + DAA Dinamico
+﻿// ULTRA ZENITE - Missao Composta + DAA Dinamico
 use rnfc_abstractions::{GnssFix, ImuSample};
 use rnfc_core::attitude_controller::AttitudeController;
 use rnfc_core::NavCore;
 use rnfc_daa::trajectory::Trajectory;
 use rnfc_daa::{plan_astar, LidarSim, Obstacle, OccupancyGrid};
 use rnfc_mavlink::MavlinkSender;
+use std::fs::File;
+use std::io::Write as IoWrite;
 
 fn to_deg(rad: f32) -> f32 { rad * 180.0 / core::f32::consts::PI }
 
@@ -83,6 +85,8 @@ fn main() {
     let mut mav = MavlinkSender::new("127.0.0.1:14550", 1, 1).expect("MAVLink sender");
     let mut mav_att_cnt = 0u64;
     let mut mav_hb_cnt = 0u64;
+    let mut traj_file = File::create("C:\\dev\\rnfc\\trajetoria.csv").expect("CSV");
+    writeln!(traj_file, "t,north,east,mission,replan").expect("header");
     let mut leg_start_t = 0.0_f32;
 
     println!("\n{:>6}  {:>9}  {:>9}  {:>7}  {:>8}  {:>8}  {:>6}  {:>7}",
@@ -91,6 +95,12 @@ fn main() {
     for i in 0..=60000 {
         t += dt;
         // === MAVLink: 10 Hz ATTITUDE + 1 Hz HEARTBEAT ===
+        if i % 10 == 0 {
+            let p = nav.position();
+            let _ = writeln!(traj_file, "{:.2},{:.3},{:.3},{},{}",
+                             t, p[0], p[1], mission_idx, replans);
+        }
+
         if i % 100 == 0 {
             let _ = mav.send_attitude(roll, pitch, yaw, roll_rate, pitch_rate, yaw_rate);
             mav_att_cnt += 1;
