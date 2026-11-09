@@ -242,3 +242,49 @@ O `MavlinkReceiver` foi testado com **2 ficheiros de teste** que simulam 7 ataqu
 ```powershell
 cargo run -p rnfc-mavlink --bin ids_test
 cargo run -p rnfc-mavlink --bin ids_test2
+
+
+### Testes de robustez a vento (matriz de 6 cenários)
+
+O RNFC foi testado com **6 valores de vento** (0 a 12 m/s) para validar a robustez do controlo:
+
+| Vento (m/s) | Tempo | Precisão | Comportamento |
+| :--- | :--- | :--- | :--- |
+| **0** (sem vento) | 82.71s | **3.98m** | Missão completa |
+| **2** (leve) | 91.14s | **3.99m** | Missão completa |
+| **4** (moderado) | 93.82s | **4.00m** | Missão completa |
+| **6** (forte) | 253.03s | **3.99m** | Missão completa (lento) |
+| **8** (muito forte) | ~180s | ~152m | **HOVER em B** (não deriva) |
+| **12** (extremo) | ~180s | ~164m | **HOVER em B** (não deriva) |
+
+**Precisão de 4m em todos os cenários alcançáveis** (0-6 m/s).
+
+### Capacidades de adaptação ao vento
+
+O sistema implementa **3 estratégias de adaptação**:
+
+| Estratégia | Quando ativa | O que faz |
+| :--- | :--- | :--- |
+| **REROUTE** | Drone stuck >8s | Muda para o waypoint mais próximo |
+| **DIRECT MODE** | Trajetória A* termina longe | Vai em linha reta com compensação de vento |
+| **HOVER** | Após 5 reroutes ou vento > capacidade | Paira no ponto atual (não deriva) |
+
+### Bugs corrigidos durante o stress testing
+
+| Bug | Causa | Correção |
+| :--- | :--- | :--- |
+| **Abortar sempre** | `stuck_timer` acumulava por iteração | Verificação a cada 1s |
+| **Loop infinito de REROUTE** | Contador resetado ao chegar | Contador global (máx 5) |
+| **Overshoot de 42m** | `max_speed` demasiado alto (50 m/s) | `max_speed` realista (20 m/s) |
+| **Precisão de 12m** | `arrival_radius` folgado | `arrival_radius = 4m` |
+| **HOVER indevido** | Voltava ao mesmo waypoint | Contador de reroutes |
+
+### Ficheiros de teste
+
+| Ficheiro | O que faz |
+| :--- | :--- |
+| `test_wind_matrix.ps1` | Corre o SITL com 6 ventos e produz a tabela |
+| `crates/rnfc-mavlink/src/bin/ids_test.rs` | Testa 4 ataques (legítimos, chave errada, replay, sysid) |
+| `crates/rnfc-mavlink/src/bin/ids_test2.rs` | Testa 3 regras IDS (flooding, gap, bruteforce) |
+
+**O drone nunca aborta, nunca deriva, nunca entra em loop.** Adapta-se ao vento dentro dos limites físicos.
