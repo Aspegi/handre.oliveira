@@ -179,3 +179,52 @@ O signing foi validado com um verificador independente (PowerShell, `System.Secu
 - **Todas assinadas** (bit `incompat_flags & 0x01` ativo)
 - **Todas validas** (SHA-256 calculado em Rust == SHA-256 calculado em PowerShell)
 - **Anti-replay:** timestamp 1986 -> 2648 entre sessoes (nunca recomeca)
+---
+
+## Seguranca
+
+### O que esta protegido
+
+| Camada | Defesa | Implementacao |
+| :--- | :--- | :--- |
+| **Codigo** | Seguranca de memoria | Rust `no_std`, sem alocacao, `#![deny(unsafe_code)]` |
+| **Codigo** | Ausencia de panic | Kani: 406 checks SUCCESSFUL no Kalman3D |
+| **Codigo** | Invariantes matematicas | Covariancia positiva e finita provada |
+| **Navegacao** | GNSS negado | Kalman 3D + IMU + atitude (continua sem GPS) |
+| **Comunicacao** | Autenticacao | MAVLink v2 signing (SHA-256, 13 bytes/frame) |
+| **Comunicacao** | Anti-replay | Timestamp monotonico persistente entre sessoes |
+| **Comunicacao** | Integridade | Checksum CRC-16/MCRF4XX + assinatura SHA-256 |
+
+### O que NAO esta protegido
+
+| Ameaca | Estado | Mitigacao recomendada |
+| :--- | :--- | :--- |
+| **Confidencialidade** | MAVLink nao encripta | VPN/IPsec ou radio com AES-256 |
+| **Secure boot** | Firmware nao verificado | Bootloader com chave publica |
+| **Deteccao de intrusao** | Sem monitorizacao de trafego | IDS com regras MAVLink |
+| **Encriptacao de logs** | `trajetoria.csv` em claro | AES-256 em repouso |
+| **Rotacao de chaves** | Manual | Protocolo de rotacao periodica |
+| **Provisionamento** | Chave de teste hardcoded | `SETUP_SIGNING` em ligacao de confianca |
+
+### Caminho para certificacao de seguranca (DO-326A)
+
+O RNFC esta pronto para o **DO-178C** (seguranca funcional: `no_std`, Kani, sem `unsafe`), mas ainda nao tem os artefactos do **DO-326A** (seguranca de aeronavegabilidade):
+
+| Requisito DO-326A | Estado |
+| :--- | :--- |
+| Analise de ameacas (threat model) | Pendente |
+| Avaliacao de risco de seguranca | Pendente |
+| Requisitos de seguranca | Pendente |
+| Evidencia de mitigacao | Parcial (signing implementado) |
+| Monitorizacao em operacao | Pendente |
+
+**Nota:** para operacoes militares ou civis certificadas, o hardening da comunicacao (encriptacao, secure boot) e a documentacao DO-326A sao pre-requisitos.
+
+### Teste do signing
+
+O signing foi validado com um verificador independente (PowerShell, `System.Security.Cryptography.SHA256`):
+
+- **662 mensagens por sessao** (601 ATTITUDE + 61 HEARTBEAT)
+- **Todas assinadas** (bit `incompat_flags & 0x01` ativo)
+- **Todas validas** (SHA-256 calculado em Rust == SHA-256 calculado em PowerShell)
+- **Anti-replay:** timestamp 1986 -> 2648 entre sessoes (nunca recomeca)
