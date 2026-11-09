@@ -7,6 +7,7 @@ members = [
 ]
 
 [workspace.package]
+authors = ["Andre Oliveira <handre.oliveira@gmail.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 

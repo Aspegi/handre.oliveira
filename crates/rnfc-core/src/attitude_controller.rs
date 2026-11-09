@@ -1,3 +1,7 @@
+// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+// Autor: Andre Oliveira <handre.oliveira@gmail.com>
+// Projeto: RNFC - Resilient Navigation & Flight Control
+// Licenca: Proprietaria (ver LICENSE)
 #![deny(unsafe_code)]
 
 use crate::pid::PidController;
@@ -13,7 +17,7 @@ impl AttitudeController {
         Self {
             pid_roll:  PidController::new(4.0, 0.5, 0.8, 1.0, 0.5),
             pid_pitch: PidController::new(4.0, 0.5, 0.8, 1.0, 0.5),
-            // Yaw: output_limit=2.5 -> taxa max = 2.5/0.8 = 3.1 rad/s = 178°/s
+            // Yaw: output_limit=2.5 -> taxa max = 2.5/0.8 = 3.1 rad/s = 178Â°/s
             pid_yaw:   PidController::new(5.0, 0.3, 1.5, 2.5, 0.5),
         }
     }

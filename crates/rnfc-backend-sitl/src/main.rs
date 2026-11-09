@@ -1,4 +1,8 @@
-﻿// ULTRA ZENITE - Missao Composta + DAA Dinamico
+// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+// Autor: Andre Oliveira <handre.oliveira@gmail.com>
+// Projeto: RNFC - Resilient Navigation & Flight Control
+// Licenca: Proprietaria (ver LICENSE)
+// ULTRA ZENITE - Missao Composta + DAA Dinamico
 use rnfc_abstractions::{GnssFix, ImuSample};
 use rnfc_core::attitude_controller::AttitudeController;
 use rnfc_core::NavCore;

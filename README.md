@@ -116,3 +116,16 @@ cd C:\\dev\\rnfc
 
 cargo run -p rnfc-backend-sitl --release
 
+
+---
+
+## Autor e Propriedade
+
+**André Oliveira** — autor e proprietário do projeto
+
+- **Email:** handre.oliveira@gmail.com
+- **Copyright:** (c) 2027 André Oliveira — Todos os direitos reservados
+- **Licença:** Proprietária (ver ficheiro [LICENSE](./LICENSE))
+
+Este software e o seu código-fonte são propriedade exclusiva de André Oliveira. Nenhuma parte pode ser reproduzida, distribuída ou modificada sem autorização prévia e por escrito.
+

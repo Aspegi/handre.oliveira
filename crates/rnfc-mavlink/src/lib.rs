@@ -1,3 +1,7 @@
+// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+// Autor: Andre Oliveira <handre.oliveira@gmail.com>
+// Projeto: RNFC - Resilient Navigation & Flight Control
+// Licenca: Proprietaria (ver LICENSE)
 //! MAVLink v2 encoder and UDP sender for the RNFC.
 //!
 //! Implements only the messages we need (HEARTBEAT, ATTITUDE) so there

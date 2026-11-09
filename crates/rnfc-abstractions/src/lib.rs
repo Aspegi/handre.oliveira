@@ -1,4 +1,8 @@
-﻿#![no_std]
+// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+// Autor: Andre Oliveira <handre.oliveira@gmail.com>
+// Projeto: RNFC - Resilient Navigation & Flight Control
+// Licenca: Proprietaria (ver LICENSE)
+#![no_std]
 #![deny(unsafe_code)]
 
 #[derive(Clone, Copy, Debug)]
