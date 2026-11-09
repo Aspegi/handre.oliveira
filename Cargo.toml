@@ -7,6 +7,7 @@ members = [
     "crates/rnfc-daa",
     "crates/rnfc-mavlink",
     "crates/rnfc-surveillance",
+    "crates/rnfc-backend-isr",
 ]
 
 [workspace.package]

@@ -73,6 +73,16 @@ name = "rnfc-abstractions"
 version = "0.1.0"
 
 [[package]]
+name = "rnfc-backend-isr"
+version = "0.1.0"
+dependencies = [
+ "rnfc-abstractions",
+ "rnfc-core",
+ "rnfc-daa",
+ "rnfc-surveillance",
+]
+
+[[package]]
 name = "rnfc-backend-sitl"
 version = "0.1.0"
 dependencies = [
