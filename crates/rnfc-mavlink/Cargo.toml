@@ -6,3 +6,4 @@ authors = ["Andre Oliveira <handre.oliveira@gmail.com>"]
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+sha2 = "0.10"

@@ -1,4 +1,4 @@
-// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+﻿// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
 // Autor: Andre Oliveira <handre.oliveira@gmail.com>
 // Projeto: RNFC - Resilient Navigation & Flight Control
 // Licenca: Proprietaria (ver LICENSE)
@@ -88,6 +88,25 @@ fn main() {
     let mut last_replan_t = -10.0_f32;
     let mut mav = MavlinkSender::new("127.0.0.1:14550", 1, 1).expect("MAVLink sender");
     let mut mav_att_cnt = 0u64;
+
+    // === MAVLink Signing: chave de teste (32 bytes) ===
+    // Em producao, a chave e provisionada via SETUP_SIGNING numa ligacao de confianca.
+    // Para o SITL, usamos uma chave fixa de 32 bytes (0x00..0x1F).
+    let signing_key: [u8; 32] = {
+        let mut k = [0u8; 32];
+        for i in 0..32 { k[i] = i as u8; }
+        k
+    };
+    mav.enable_signing(signing_key, 0);
+    // Ler timestamp persistido (anti-replay entre sessoes)
+    let persisted_ts = std::fs::read_to_string("C:\\dev\\rnfc\\mavlink_signing_ts.txt")
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .unwrap_or(0);
+    mav.set_signing_timestamp(persisted_ts);
+    println!("[MAVLINK] Timestamp inicial carregado: {}", persisted_ts);
+
+    println!("[MAVLINK] Signing ATIVADO (link_id=0, chave=0x00..0x1F)");
     let mut mav_hb_cnt = 0u64;
     let mut traj_file = File::create("C:\\dev\\rnfc\\trajetoria.csv").expect("CSV");
     writeln!(traj_file, "t,north,east,mission,replan").expect("header");
@@ -272,6 +291,13 @@ fn main() {
 
     let final_pos = nav.position();
     let dist = ((final_pos[0]-0.0).powi(2) + (final_pos[1]-0.0).powi(2)).sqrt();
+    // Persistir o timestamp de signing (anti-replay entre sessoes)
+    let _ = std::fs::write(
+        "C:\\dev\\rnfc\\mavlink_signing_ts.txt",
+        mav.signing_timestamp().to_string()
+    );
+    println!("[MAVLINK] Timestamp de signing persistido: {}", mav.signing_timestamp());
+
     println!("\n=== MAVLINK ===");
     println!("ATTITUDE enviadas: {} | HEARTBEAT enviados: {} | Erros: {}",
              mav.stats_attitudes, mav.stats_heartbeats, mav.stats_errors);
