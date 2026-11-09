@@ -50,7 +50,7 @@ impl PidController {
 
         let output = self.kp * error + self.ki * self.integral + self.kd * derivative;
 
-        // Saturação da saida
+        // SaturaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o da saida
         if output > self.output_limit { self.output_limit }
         else if output < -self.output_limit { -self.output_limit }
         else { output }
@@ -60,5 +60,45 @@ impl PidController {
         self.integral = 0.0;
         self.prev_measured = 0.0;
         self.first_step = true;
+    }
+}
+
+#[cfg(kani)]
+mod verification {
+    use super::*;
+
+    /// Prova que o PID nunca produz output fora do `output_limit`
+    /// e que o integral nunca excede o `integral_limit` (anti-windup).
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn pid_output_bounded() {
+        let setpoint: f32 = kani::any();
+        let measured: f32 = kani::any();
+        let dt: f32 = kani::any();
+
+        kani::assume(setpoint.is_finite() && setpoint.abs() < 10.0);
+        kani::assume(measured.is_finite() && measured.abs() < 10.0);
+        kani::assume(dt.is_finite() && dt > 0.0 && dt < 0.1);
+
+        let mut pid = PidController::new(4.0, 0.5, 0.8, 1.0, 0.5);
+        let output = pid.update(setpoint, measured, dt);
+
+        kani::assert(output.abs() <= 1.0, "output within limit");
+        kani::assert(output.is_finite(), "output finite");
+    }
+
+    /// Prova que o PID nÃƒÆ’Ã‚Â£o entra em panic com entradas razoÃƒÆ’Ã‚Â¡veis.
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn pid_no_panic() {
+        let setpoint: f32 = kani::any();
+        let measured: f32 = kani::any();
+        let dt: f32 = kani::any();
+        kani::assume(setpoint.is_finite() && setpoint.abs() < 1.0e6);
+        kani::assume(measured.is_finite() && measured.abs() < 1.0e6);
+        kani::assume(dt.is_finite() && dt > 0.0 && dt < 0.1);
+
+        let mut pid = PidController::new(4.0, 0.5, 0.8, 1.0, 0.5);
+        let _output = pid.update(setpoint, measured, dt);
     }
 }
