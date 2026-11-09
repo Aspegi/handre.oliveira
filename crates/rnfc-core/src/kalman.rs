@@ -63,3 +63,32 @@ impl Kalman3D {
         }
     }
 }
+
+#[cfg(kani)]
+mod verification {
+    use super::*;
+
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn predict_update_no_panic() {
+        let mut kf = Kalman3D::new([0.0; 3], [0.0; 3]);
+
+        let accel: [f32; 3] = [kani::any(), kani::any(), kani::any()];
+        let dt: f32 = kani::any();
+        let z: [f32; 3] = [kani::any(), kani::any(), kani::any()];
+
+        kani::assume(dt.is_finite() && dt > 0.0 && dt < 0.1);
+        for i in 0..3 {
+            kani::assume(accel[i].is_finite() && accel[i].abs() < 50.0);
+            kani::assume(z[i].is_finite() && z[i].abs() < 1.0e5);
+        }
+
+        kf.predict(accel, dt);
+        kf.update_position(z);
+
+        kani::assert(kf.p[0][0][0] > 0.0, "covariancia roll positiva");
+        kani::assert(kf.p[1][1][1] > 0.0, "covariancia pitch positiva");
+        kani::assert(kf.p[0][0][0].is_finite(), "covariancia roll finita");
+        kani::assert(kf.p[1][1][1].is_finite(), "covariancia pitch finita");
+    }
+}
