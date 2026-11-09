@@ -8,3 +8,4 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 rnfc-abstractions = { path = "../rnfc-abstractions" }
 libm = "0.2"
+nav-types = "0.5"

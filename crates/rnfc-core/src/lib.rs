@@ -2,11 +2,13 @@
 // Autor: Andre Oliveira <handre.oliveira@gmail.com>
 // Projeto: RNFC - Resilient Navigation & Flight Control
 // Licenca: Proprietaria (ver LICENSE)
+#![allow(unexpected_cfgs)]
 #![no_std]
 #![deny(unsafe_code)]
 
 pub mod attitude;
 pub mod math;
+pub mod geodesy;
 pub mod attitude_controller;
 pub mod attitude_fusion;
 pub mod guidance;
