@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
 // Autor: Andre Oliveira <handre.oliveira@gmail.com>
 // Projeto: RNFC - Resilient Navigation & Flight Control
 // Licenca: Proprietaria (ver LICENSE)
@@ -80,6 +80,12 @@ fn main() {
     let mut yaw_rate: f32 = 0.0;
 
     let dt = 0.01_f32;
+
+    // === Fisica realista: vento + arrasto ===
+    const WIND_N: f32 = 2.0;       // m/s (vento de norte)
+    const WIND_E: f32 = -1.0;      // m/s (vento de oeste)
+    const DRAG_K: f32 = 0.02;      // coeficiente de arrasto
+    let mut gust_active = false;
     let mut t = 0.0_f32;
     let mut done = false;
     let mut progress_d = 0.0_f32;
@@ -248,8 +254,16 @@ fn main() {
         current_speed += dv;
         current_speed = current_speed.min(v_target).max(0.0);
 
-        let vel_n = current_speed * yaw.cos();
-        let vel_e = current_speed * yaw.sin();
+        let drag = DRAG_K * current_speed * current_speed;
+        let effective_speed = (current_speed - drag).max(0.0);
+        if t > 60.0 && t < 65.0 && !gust_active {
+            gust_active = true;
+            println!("    *** RAJADA DE VENTO em t={:.1}s ***", t);
+        }
+        let gust_n = if gust_active && t < 65.0 { 5.0 } else { 0.0 };
+        let gust_e = if gust_active && t < 65.0 { 3.0 } else { 0.0 };
+        let vel_n = effective_speed * yaw.cos() + WIND_N + gust_n;
+        let vel_e = effective_speed * yaw.sin() + WIND_E + gust_e;
         let new_pos = [pos[0] + vel_n * dt, pos[1] + vel_e * dt, 0.0];
 
         // === Chegada a este waypoint ===
