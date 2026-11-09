@@ -1,0 +1,37 @@
+# Configuracao do cargo-deny para o RNFC
+# Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+
+[graph]
+targets = []
+
+[advisories]
+# A partir do cargo-deny 0.16, 'unmaintained' espera um escopo:
+# "all", "workspace", "transitive" ou "none".
+unmaintained = "workspace"
+yanked = "warn"
+ignore = []
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "Unlicense",
+    "CC0-1.0",
+]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+deny = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
