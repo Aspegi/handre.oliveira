@@ -65,12 +65,12 @@ fn main() {
     println!("Perna 1 -> A: {} waypoints, {:.1}m", plan.len(), trajectory.total_length);
 
     // === Parametros Ultra Zenite ===
-    let max_speed = 8.0_f32;
+    let max_speed = 35.0_f32;
     let max_pitch = 20.0_f32.to_radians();
     let a_lat_max = 3.0_f32;
     let lookahead_base = 4.0_f32;
     let lookahead_speed_gain = 0.6_f32;
-    let arrival_radius = 2.5_f32;
+    let arrival_radius = 4.0_f32;
 
     let mut roll: f32 = 0.0;
     let mut pitch: f32 = 0.0;
@@ -84,13 +84,16 @@ fn main() {
     // === Fisica realista: vento + arrasto ===
     const WIND_N: f32 = 3.0;       // m/s (vento de norte)
     const WIND_E: f32 = -1.5;      // m/s (vento de oeste)
-    const DRAG_K: f32 = 0.02;      // coeficiente de arrasto
+    const DRAG_K: f32 = 0.005;      // coeficiente de arrasto
     let mut gust_active = false;
     // === Abort logic state ===
     let mut last_dist_to_goal: f32 = f32::INFINITY;
     let mut stuck_timer: f32 = 0.0;
-    let mut aborted = false;
-    let mut t = 0.0_f32;
+    let mut stuck_check_timer: f32 = 0.0;
+    let mut direct_mode: bool = false;
+    let mut reroute_count: [u32; 3] = [0, 0, 0];
+    let mut total_reroutes: u32 = 0;
+        let mut t = 0.0_f32;
     let mut done = false;
     let mut progress_d = 0.0_f32;
     let mut current_speed = 0.0_f32;
@@ -189,23 +192,64 @@ fn main() {
         progress_d = closest_d;
 
         let dist_to_end = (trajectory.total_length - progress_d).max(0.0);
+
         let dist_to_goal = ((pos[0]-goal[0]).powi(2) + (pos[1]-goal[1]).powi(2)).sqrt();
 
-        // === Deteccao de "stuck" para abortar ===
-        if !aborted && dist_to_goal > 5.0 {
-            if (last_dist_to_goal - dist_to_goal).abs() < 0.5 {
-                stuck_timer += dt;
-            } else {
-                stuck_timer = 0.0;
-            }
-            if stuck_timer > 10.0 {
-                println!("    *** ABORTAR: vento excessivo, sem progresso ha {:.1}s ***", stuck_timer);
-                aborted = true;
-                done = true;
-                continue;
+        // Se a trajetoria A* terminou mas ainda estamos longe do goal, ativar direct mode
+        if dist_to_end < 3.0 && dist_to_goal > 15.0 && !direct_mode {
+            println!("    *** DIRECT MODE: trajetoria A* terminou a {:.1}m do goal ***", dist_to_goal);
+            direct_mode = true;
+        }
+
+        // === Deteccao de "stuck" - reroute para waypoint mais proximo (nunca abortar) ===
+        if dist_to_goal > 5.0 {
+            stuck_check_timer += dt;
+            if stuck_check_timer >= 1.0 {
+                let progress_1s = last_dist_to_goal - dist_to_goal;
+                if progress_1s < 0.5 && (t - leg_start_t) > 3.0 {
+                    stuck_timer += 1.0;
+                    if stuck_timer >= 8.0 {
+                        let mut best_idx = 0;
+                        let mut best_dist = f32::INFINITY;
+                        for (idx, wp) in mission.iter().enumerate() {
+                            let d = ((pos[0]-wp[0]).powi(2) + (pos[1]-wp[1]).powi(2)).sqrt();
+                            if d < best_dist { best_dist = d; best_idx = idx; }
+                        }
+                        if best_idx != mission_idx {
+                            total_reroutes += 1;
+                            if total_reroutes > 5 {
+                                println!("    *** HOVER: {} reroutes, vento demasiado forte, a pairar em ({:.1},{:.1}) ***", total_reroutes, pos[0], pos[1]);
+                                done = true;
+                                continue;
+                            }
+                            println!("    *** REROUTE #{}: waypoint {} ***", total_reroutes, best_idx);
+                            mission_idx = best_idx;
+                            if let Some(new_plan) = plan_astar(&grid, pos2, mission[mission_idx]) {
+                                trajectory = Trajectory::from_waypoints(&new_plan, 0.5);
+                                progress_d = 0.0;
+                                leg_start_t = t;
+                direct_mode = false;
+                                last_dist_to_goal = f32::INFINITY;
+                                stuck_timer = 0.0;
+                                stuck_check_timer = 0.0;
+                                continue;
+                            }
+                        } else {
+                            // Ja esta a ir para o waypoint mais proximo - persistir
+                            println!("    *** DIRECT MODE: heading direto para waypoint {} ***", mission_idx);
+                            direct_mode = true;
+                            stuck_timer = 0.0;
+                            stuck_check_timer = 0.0;
+                            last_dist_to_goal = f32::INFINITY;
+                        }
+                    }
+                } else {
+                    stuck_timer = 0.0;
+                }
+                last_dist_to_goal = dist_to_goal;
+                stuck_check_timer = 0.0;
             }
         }
-        last_dist_to_goal = dist_to_goal;
 
         // Lookahead adaptativo
         let lookahead = if dist_to_end < 15.0 {
@@ -242,13 +286,22 @@ fn main() {
         };
 
         // Desacelerar baseado na distancia ao goal
-        let v_end = if dist_to_goal < 8.0 {
-            (dist_to_goal / 8.0 * max_speed).max(0.2)
+        let v_end = if dist_to_goal < 20.0 {
+            (dist_to_goal / 20.0 * max_speed).max(0.3)
         } else {
             max_speed
         };
 
-        let v_target = v_curve.min(v_end);
+        // Em DIRECT MODE, ignorar v_curve (a trajetoria antiga nao e relevante)
+        let v_target = if direct_mode {
+            if dist_to_goal < 25.0 {
+                (dist_to_goal / 25.0 * max_speed).max(3.0)
+            } else {
+                max_speed
+            }
+        } else {
+            v_curve.min(v_end)
+        };
         let sp_pitch = (v_target / max_speed) * max_pitch;
         let setpoints = [0.0_f32, sp_pitch, sp_yaw];
 
@@ -264,7 +317,7 @@ fn main() {
         pitch += pitch_rate * dt;
         yaw   += yaw_rate   * dt;
 
-        let accel_max = 5.0_f32;
+        let accel_max = 10.0_f32;
         let desired = max_speed * (pitch.abs() / max_pitch).min(1.0);
         let dv = (desired - current_speed).clamp(-accel_max * dt, accel_max * dt);
         current_speed += dv;
@@ -283,10 +336,13 @@ fn main() {
         let new_pos = [pos[0] + vel_n * dt, pos[1] + vel_e * dt, 0.0];
 
         // === Chegada a este waypoint ===
-        if dist_to_goal < arrival_radius && current_speed < 0.5 {
+        let effective_arrival = if direct_mode { 8.0 } else { arrival_radius };
+        if dist_to_goal < effective_arrival {
+            // Chegou ao waypoint - mudar para o proximo
             println!("    -> Waypoint {} atingido em t={:.2}s (perna {:.1}s) | pos=({:.1},{:.1})",
                      mission_idx, t, t - leg_start_t, pos[0], pos[1]);
             mission_idx += 1;
+                direct_mode = false; // reset ao mudar de waypoint
             if mission_idx >= mission.len() {
                 println!("\n*** MISSAO COMPLETA em t={:.2}s ***\n", t);
                 done = true;
@@ -298,6 +354,7 @@ fn main() {
                 trajectory = Trajectory::from_waypoints(&new_plan, 0.5);
 
                 leg_start_t = t;
+                direct_mode = false;
                 println!("    Perna {} -> wp{}: {} waypoints, {:.1}m",
                          mission_idx + 1, mission_idx, new_plan.len(), trajectory.total_length);
             } else {
