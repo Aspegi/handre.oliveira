@@ -4,6 +4,7 @@ use rnfc_core::attitude_controller::AttitudeController;
 use rnfc_core::NavCore;
 use rnfc_daa::trajectory::Trajectory;
 use rnfc_daa::{plan_astar, LidarSim, Obstacle, OccupancyGrid};
+use rnfc_mavlink::MavlinkSender;
 
 fn to_deg(rad: f32) -> f32 { rad * 180.0 / core::f32::consts::PI }
 
@@ -79,6 +80,9 @@ fn main() {
     let mut current_speed = 0.0_f32;
     let mut replans = 0;
     let mut last_replan_t = -10.0_f32;
+    let mut mav = MavlinkSender::new("127.0.0.1:14550", 1, 1).expect("MAVLink sender");
+    let mut mav_att_cnt = 0u64;
+    let mut mav_hb_cnt = 0u64;
     let mut leg_start_t = 0.0_f32;
 
     println!("\n{:>6}  {:>9}  {:>9}  {:>7}  {:>8}  {:>8}  {:>6}  {:>7}",
@@ -86,6 +90,17 @@ fn main() {
 
     for i in 0..=60000 {
         t += dt;
+        // === MAVLink: 10 Hz ATTITUDE + 1 Hz HEARTBEAT ===
+        if i % 100 == 0 {
+            let _ = mav.send_attitude(roll, pitch, yaw, roll_rate, pitch_rate, yaw_rate);
+            mav_att_cnt += 1;
+        }
+        if i % 1000 == 0 {
+            let _ = mav.send_heartbeat();
+            mav_hb_cnt += 1;
+        }
+
+
 
         if done {
             if i % 1000 == 0 {
@@ -243,12 +258,15 @@ fn main() {
 
     let final_pos = nav.position();
     let dist = ((final_pos[0]-0.0).powi(2) + (final_pos[1]-0.0).powi(2)).sqrt();
+    println!("\n=== MAVLINK ===");
+    println!("ATTITUDE enviadas: {} | HEARTBEAT enviados: {} | Erros: {}",
+             mav.stats_attitudes, mav.stats_heartbeats, mav.stats_errors);
     println!("\n=== RESULTADO FINAL ===");
     println!("posicao final: N={:.2}m E={:.2}m", final_pos[0], final_pos[1]);
     println!("waypoints visitados: A(100,50) -> B(150,-30) -> C(0,0)");
     println!("replans dinamicos: {}", replans);
     println!("distancia a base: {:.2}m", dist);
     if dist < 2.0 {
-        println!("\nOK: Passo 9 ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â missao composta + DAA dinamico concluidos.");
+        println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }

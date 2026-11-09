@@ -19,6 +19,7 @@ dependencies = [
  "rnfc-abstractions",
  "rnfc-core",
  "rnfc-daa",
+ "rnfc-mavlink",
 ]
 
 [[package]]
@@ -36,3 +37,7 @@ dependencies = [
  "rnfc-abstractions",
  "rnfc-core",
 ]
+
+[[package]]
+name = "rnfc-mavlink"
+version = "0.1.0"

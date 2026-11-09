@@ -8,3 +8,4 @@ license = "MIT OR Apache-2.0"
 rnfc-abstractions = { path = "../rnfc-abstractions" }
 rnfc-core = { path = "../rnfc-core" }
 rnfc-daa = { path = "../rnfc-daa" }
+rnfc-mavlink = { path = "../rnfc-mavlink" }
