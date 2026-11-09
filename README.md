@@ -132,7 +132,60 @@ Este software e o seu código-fonte são propriedade exclusiva de André Oliveir
 
 ---
 
-## Seguranca
+## Segurança
+
+### O que esta protegido (v1.9)
+
+| Camada | Defesa | Implementacao |
+| :--- | :--- | :--- |
+| **Codigo** | Seguranca de memoria | Rust `no_std`, sem alocacao, `#![deny(unsafe_code)]` |
+| **Codigo** | Ausencia de panic | Kani: 406 checks SUCCESSFUL no Kalman3D |
+| **Codigo** | Invariantes matematicas | Covariancia positiva e finita provada |
+| **Navegacao** | GNSS negado | Kalman 3D + IMU + atitude (continua sem GPS) |
+| **Comunicacao** | Autenticacao | MAVLink v2 signing (SHA-256, 13 bytes/frame) |
+| **Comunicacao** | Anti-replay | Timestamp monotonico persistente entre sessoes |
+| **Comunicacao** | Integridade | Checksum CRC-16/MCRF4XX + assinatura SHA-256 |
+| **Comunicacao** | Deteccao de intrusao | `MavlinkReceiver` com 6 regras IDS (flooding, sysid desconhecido, replay, gap, assinatura invalida, bruteforce) |
+| **Robustez** | Fisica realista | Vento + arrasto + rajada no SITL |
+| **Robustez** | Consciencia de limites | Logica de abortar quando `stuck > 10s` |
+
+### O que ainda NAO esta protegido
+
+| Ameaca | Estado | Mitigacao recomendada |
+| :--- | :--- | :--- |
+| **Confidencialidade** | Pendente | VPN/IPsec ou radio com AES-256 (MAVLink nao encripta) |
+| **Secure boot** | Pendente | Bootloader com chave publica (verifica assinatura do binario) |
+| **Encriptacao de logs** | Pendente | AES-256-GCM em repouso (`trajetoria.csv`) |
+| **Rotacao de chaves** | Pendente | Protocolo de rotacao periodica (manual via `SETUP_SIGNING`) |
+| **Provisionamento** | Parcial | SITL usa chave de teste; producao deve usar `SETUP_SIGNING` via USB |
+
+### Caminho para certificacao de seguranca (DO-326A)
+
+O RNFC tem os **5 artefactos DO-326A completos** em `docs/`:
+
+| Requisito DO-326A | Ficheiro | Estado |
+| :--- | :--- | :--- |
+| Analise de ameacas (threat model) | `docs/RNFC-Threat-Model.md` | Concluido |
+| Avaliacao de risco de seguranca | `docs/RNFC-Security-Risk-Assessment.md` | Concluido |
+| Requisitos de seguranca | `docs/RNFC-Security-Requirements.md` | Concluido (14 requisitos) |
+| Evidencia de mitigacao | `docs/RNFC-Security-Evidence.md` | Concluido (6 implementados) |
+| Monitorizacao em operacao | `docs/RNFC-IDS-Design.md` + `MavlinkReceiver` | Concluido (design + codigo) |
+
+**Riscos mitigados (Baixo):** T-01 (injecao), T-02 (replay), T-06 (flooding via IDS), T-08 (logs).
+
+**Riscos a mitigar (Alto):** T-04 (provisionamento de chave), T-05 (secure boot).
+
+**Riscos a monitorizar (Medio):** T-03 (spoofing GNSS), T-07 (confidencialidade).
+
+### Testes de robustez
+
+| Teste | Resultado |
+| :--- | :--- |
+| Vento normal (3 m/s) | Missao completa em ~338s, 1.23m de precisao |
+| Vento extremo (8 m/s) | **ABORTAR** dispara em 10s, drone para a 18.55m |
+| Rajada (5 m/s) | PID compensa, missao continua |
+| MAVLink signing | 662 msg/sessao, 0 erros, anti-replay (3310 -> 3972) |
+| IDS | 4 ataques testados (chave errada, sysid desconhecido, replay, flooding) |
 
 ### O que esta protegido
 
@@ -145,66 +198,6 @@ Este software e o seu código-fonte são propriedade exclusiva de André Oliveir
 | **Comunicacao** | Autenticacao | MAVLink v2 signing (SHA-256, 13 bytes/frame) |
 | **Comunicacao** | Anti-replay | Timestamp monotónico persistente entre sessoes |
 | **Comunicacao** | Integridade | Checksum CRC-16/MCRF4XX + assinatura SHA-256 |
-
-### O que NAO esta protegido
-
-| Ameaca | Estado | Mitigacao recomendada |
-| :--- | :--- | :--- |
-| **Confidencialidade** | ❌ MAVLink nao encripta | VPN/IPsec ou radio com AES-256 |
-| **Secure boot** | ❌ Firmware nao verificado | Bootloader com chave publica |
-| **Deteccao de intrusao** | ❌ Sem monitorizacao de trafego | IDS com regras MAVLink |
-| **Encriptacao de logs** | ❌ `trajetoria.csv` em claro | AES-256 em repouso |
-| **Rotacao de chaves** | ❌ Manual | Protocolo de rotacao periodica |
-| **Provisionamento** | ❌ Chave de teste hardcoded | `SETUP_SIGNING` em ligacao de confianca |
-
-### Caminho para certificacao de seguranca (DO-326A)
-
-O RNFC esta pronto para o **DO-178C** (seguranca funcional: `no_std`, Kani, sem `unsafe`), mas ainda nao tem os artefactos do **DO-326A** (seguranca de aeronavegabilidade):
-
-| Requisito DO-326A | Estado |
-| :--- | :--- |
-| Analise de ameacas (threat model) | ⬜ |
-| Avaliacao de risco de seguranca | ⬜ |
-| Requisitos de seguranca | ⬜ |
-| Evidencia de mitigacao | ⬜ (signing implementado) |
-| Monitorizacao em operacao | ⬜ |
-
-**Nota:** para operacoes militares ou civis certificadas, o hardening da comunicacao (encriptacao, secure boot) e a documentacao DO-326A sao pre-requisitos.
-
-### Teste do signing
-
-O signing foi validado com um verificador independente (PowerShell, `System.Security.Cryptography.SHA256`):
-
-- **662 mensagens por sessao** (601 ATTITUDE + 61 HEARTBEAT)
-- **Todas assinadas** (bit `incompat_flags & 0x01` ativo)
-- **Todas validas** (SHA-256 calculado em Rust == SHA-256 calculado em PowerShell)
-- **Anti-replay:** timestamp 1986 -> 2648 entre sessoes (nunca recomeca)
----
-
-## Seguranca
-
-### O que esta protegido
-
-| Camada | Defesa | Implementacao |
-| :--- | :--- | :--- |
-| **Codigo** | Seguranca de memoria | Rust `no_std`, sem alocacao, `#![deny(unsafe_code)]` |
-| **Codigo** | Ausencia de panic | Kani: 406 checks SUCCESSFUL no Kalman3D |
-| **Codigo** | Invariantes matematicas | Covariancia positiva e finita provada |
-| **Navegacao** | GNSS negado | Kalman 3D + IMU + atitude (continua sem GPS) |
-| **Comunicacao** | Autenticacao | MAVLink v2 signing (SHA-256, 13 bytes/frame) |
-| **Comunicacao** | Anti-replay | Timestamp monotonico persistente entre sessoes |
-| **Comunicacao** | Integridade | Checksum CRC-16/MCRF4XX + assinatura SHA-256 |
-
-### O que NAO esta protegido
-
-| Ameaca | Estado | Mitigacao recomendada |
-| :--- | :--- | :--- |
-| **Confidencialidade** | MAVLink nao encripta | VPN/IPsec ou radio com AES-256 |
-| **Secure boot** | Firmware nao verificado | Bootloader com chave publica |
-| **Deteccao de intrusao** | Sem monitorizacao de trafego | IDS com regras MAVLink |
-| **Encriptacao de logs** | `trajetoria.csv` em claro | AES-256 em repouso |
-| **Rotacao de chaves** | Manual | Protocolo de rotacao periodica |
-| **Provisionamento** | Chave de teste hardcoded | `SETUP_SIGNING` em ligacao de confianca |
 
 ### Caminho para certificacao de seguranca (DO-326A)
 
