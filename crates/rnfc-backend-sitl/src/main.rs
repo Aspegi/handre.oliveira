@@ -82,10 +82,14 @@ fn main() {
     let dt = 0.01_f32;
 
     // === Fisica realista: vento + arrasto ===
-    const WIND_N: f32 = 2.0;       // m/s (vento de norte)
-    const WIND_E: f32 = -1.0;      // m/s (vento de oeste)
+    const WIND_N: f32 = 3.0;       // m/s (vento de norte)
+    const WIND_E: f32 = -1.5;      // m/s (vento de oeste)
     const DRAG_K: f32 = 0.02;      // coeficiente de arrasto
     let mut gust_active = false;
+    // === Abort logic state ===
+    let mut last_dist_to_goal: f32 = f32::INFINITY;
+    let mut stuck_timer: f32 = 0.0;
+    let mut aborted = false;
     let mut t = 0.0_f32;
     let mut done = false;
     let mut progress_d = 0.0_f32;
@@ -190,6 +194,22 @@ fn main() {
 
         let dist_to_end = (trajectory.total_length - progress_d).max(0.0);
         let dist_to_goal = ((pos[0]-goal[0]).powi(2) + (pos[1]-goal[1]).powi(2)).sqrt();
+
+        // === Deteccao de "stuck" para abortar ===
+        if !aborted && dist_to_goal > 5.0 {
+            if (last_dist_to_goal - dist_to_goal).abs() < 0.5 {
+                stuck_timer += dt;
+            } else {
+                stuck_timer = 0.0;
+            }
+            if stuck_timer > 10.0 {
+                println!("    *** ABORTAR: vento excessivo, sem progresso ha {:.1}s ***", stuck_timer);
+                aborted = true;
+                done = true;
+                continue;
+            }
+        }
+        last_dist_to_goal = dist_to_goal;
 
         // Lookahead adaptativo
         let lookahead = if dist_to_end < 15.0 {
