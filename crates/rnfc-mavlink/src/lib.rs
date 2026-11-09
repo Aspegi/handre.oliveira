@@ -2,6 +2,8 @@
 //! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
 #![deny(unsafe_code)]
 
+pub mod receiver;
+
 use sha2::{Digest, Sha256};
 use std::net::UdpSocket;
 use std::time::Instant;
