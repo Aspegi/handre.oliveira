@@ -4,6 +4,9 @@ members = [
     "crates/rnfc-abstractions",
     "crates/rnfc-core",
     "crates/rnfc-backend-sitl",
+    "crates/rnfc-daa",
+    "crates/rnfc-mavlink",
+    "crates/rnfc-surveillance",
 ]
 
 [workspace.package]
