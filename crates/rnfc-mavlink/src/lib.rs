@@ -19,6 +19,7 @@ pub struct MavlinkSender {
     pub stats_attitudes: u64,
     pub stats_errors: u64,
     secret_key: Option<[u8; 32]>,
+    #[allow(dead_code)]
     link_id: u8,
     signing_timestamp: u64,
 }

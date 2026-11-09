@@ -54,6 +54,7 @@ impl Default for IdsConfig {
 pub struct MavlinkReceiver {
     socket: UdpSocket,
     secret_key: [u8; 32],
+    #[allow(dead_code)]
     link_id: u8,
     last_timestamp: HashMap<(u8, u8, u8), u64>,
     rate_counter: HashMap<u8, (u32, Instant)>,

@@ -1,5 +1,5 @@
 //! Teste de integracao do IDS: simula ataques e verifica alertas.
-use rnfc_mavlink::receiver::{IdsAlert, MavlinkReceiver};
+use rnfc_mavlink::receiver::MavlinkReceiver;
 use rnfc_mavlink::MavlinkSender;
 use std::thread;
 use std::time::Duration;

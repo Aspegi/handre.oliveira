@@ -97,7 +97,6 @@ fn main() {
     let mut replans = 0;
     let mut last_replan_t = -10.0_f32;
     let mut mav = MavlinkSender::new("127.0.0.1:14550", 1, 1).expect("MAVLink sender");
-    let mut mav_att_cnt = 0u64;
 
     // === MAVLink Signing: chave de teste (32 bytes) ===
     // Em producao, a chave e provisionada via SETUP_SIGNING numa ligacao de confianca.
@@ -117,7 +116,6 @@ fn main() {
     println!("[MAVLINK] Timestamp inicial carregado: {}", persisted_ts);
 
     println!("[MAVLINK] Signing ATIVADO (link_id=0, chave=0x00..0x1F)");
-    let mut mav_hb_cnt = 0u64;
     let mut traj_file = File::create("C:\\dev\\rnfc\\trajetoria.csv").expect("CSV");
     writeln!(traj_file, "t,north,east,mission,replan").expect("header");
     let mut leg_start_t = 0.0_f32;
@@ -136,11 +134,9 @@ fn main() {
 
         if i % 100 == 0 {
             let _ = mav.send_attitude(roll, pitch, yaw, roll_rate, pitch_rate, yaw_rate);
-            mav_att_cnt += 1;
         }
         if i % 1000 == 0 {
             let _ = mav.send_heartbeat();
-            mav_hb_cnt += 1;
         }
 
 
@@ -161,7 +157,7 @@ fn main() {
         // === Replan se LiDAR detecta obstaculo nao mapeado ===
         if t - last_replan_t > 4.0 {
             let hits = lidar.scan(pos[0], pos[1]);
-            let mut needs_replan = false;
+            let _needs_replan = false;
             let mut new_obstacles = 0;
             for h in &hits {
                 // Converter hit para NED aproximado: o LiDAR ja devolve N,E
@@ -179,7 +175,7 @@ fn main() {
             if new_obstacles > 0 {
                 if let Some(new_plan) = plan_astar(&grid, pos2, goal) {
                     trajectory = Trajectory::from_waypoints(&new_plan, 0.5);
-                    progress_d = 0.0;
+
                     replans += 1;
                     last_replan_t = t;
                     println!("    *** REPLAN #{} em t={:.1}s ({} novos obstaculos) ***",
@@ -300,7 +296,7 @@ fn main() {
             let next_goal = mission[mission_idx];
             if let Some(new_plan) = plan_astar(&grid, pos2, next_goal) {
                 trajectory = Trajectory::from_waypoints(&new_plan, 0.5);
-                progress_d = 0.0;
+
                 leg_start_t = t;
                 println!("    Perna {} -> wp{}: {} waypoints, {:.1}m",
                          mission_idx + 1, mission_idx, new_plan.len(), trajectory.total_length);
