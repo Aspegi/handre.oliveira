@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::net::UdpSocket;
 use std::time::{Duration, Instant};
 
+/// Alertas gerados pelas regras IDS (ver docs/RNFC-IDS-Design.md).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IdsAlert {
     Flooding { sysid: u8, rate: u32 },
@@ -20,16 +21,25 @@ pub enum IdsAlert {
 impl std::fmt::Display for IdsAlert {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            IdsAlert::Flooding { sysid, rate } => write!(f, "FLOODING sysid={} rate={}/s", sysid, rate),
+            IdsAlert::Flooding { sysid, rate } => {
+                write!(f, "FLOODING sysid={} rate={}/s", sysid, rate)
+            }
             IdsAlert::UnknownSysid { sysid } => write!(f, "UNKNOWN_SYSID sysid={}", sysid),
             IdsAlert::Replay { sysid, ts } => write!(f, "REPLAY sysid={} ts={}", sysid, ts),
-            IdsAlert::TimestampGap { sysid, gap } => write!(f, "TIMESTAMP_GAP sysid={} gap={}", sysid, gap),
-            IdsAlert::InvalidSignature { sysid } => write!(f, "INVALID_SIGNATURE sysid={}", sysid),
-            IdsAlert::Bruteforce { sysid, failures } => write!(f, "BRUTEFORCE sysid={} failures={}", sysid, failures),
+            IdsAlert::TimestampGap { sysid, gap } => {
+                write!(f, "TIMESTAMP_GAP sysid={} gap={}", sysid, gap)
+            }
+            IdsAlert::InvalidSignature { sysid } => {
+                write!(f, "INVALID_SIGNATURE sysid={}", sysid)
+            }
+            IdsAlert::Bruteforce { sysid, failures } => {
+                write!(f, "BRUTEFORCE sysid={} failures={}", sysid, failures)
+            }
         }
     }
 }
 
+/// Configuracao das regras IDS.
 #[derive(Debug, Clone)]
 pub struct IdsConfig {
     pub authorized_sysids: Vec<u8>,
@@ -51,6 +61,7 @@ impl Default for IdsConfig {
     }
 }
 
+/// Recetor MAVLink v2 com verificacao de assinatura e anti-replay.
 pub struct MavlinkReceiver {
     socket: UdpSocket,
     secret_key: [u8; 32],
@@ -83,6 +94,7 @@ impl MavlinkReceiver {
         })
     }
 
+    /// Le um frame com timeout de 100ms. Ok(true) = frame recebido, Ok(false) = timeout.
     pub fn try_receive(&mut self) -> std::io::Result<bool> {
         let mut buf = [0u8; 512];
         match self.socket.recv_from(&mut buf) {
@@ -90,27 +102,41 @@ impl MavlinkReceiver {
                 self.process_frame(&buf[..n]);
                 Ok(true)
             }
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock
-                || e.kind() == std::io::ErrorKind::TimedOut => Ok(false),
+            Err(e)
+                if e.kind() == std::io::ErrorKind::WouldBlock
+                    || e.kind() == std::io::ErrorKind::TimedOut =>
+            {
+                Ok(false)
+            }
             Err(e) => Err(e),
         }
     }
 
     fn process_frame(&mut self, data: &[u8]) {
-        if data.len() < 12 || data[0] != 0xFD { return; }
+        // Frame minimo MAVLink v2: magic + len + incompat + compat + seq + sysid + compid + msgid(3) + payload + crc(2)
+        if data.len() < 12 || data[0] != 0xFD {
+            return;
+        }
         let payload_len = data[1] as usize;
         let incompat = data[2];
         let sysid = data[5];
         let compid = data[6];
         let signed = (incompat & 0x01) != 0;
         let base_len = 10 + payload_len + 2;
-        if data.len() < base_len { self.invalid_frames += 1; return; }
+        if data.len() < base_len {
+            self.invalid_frames += 1;
+            return;
+        }
 
+        // IDS-RULE-001: rate limiting
         self.check_rate(sysid);
+
+        // IDS-RULE-002: sysid desconhecido
         if !self.config.authorized_sysids.contains(&sysid) {
             self.alerts.push(IdsAlert::UnknownSysid { sysid });
         }
 
+        // IDS-RULE-005: assinatura invalida / ausente
         if !signed {
             self.alerts.push(IdsAlert::InvalidSignature { sysid });
             self.count_invalid_sig(sysid);
@@ -118,17 +144,27 @@ impl MavlinkReceiver {
             return;
         }
 
-        if data.len() < base_len + 13 { self.invalid_frames += 1; return; }
+        if data.len() < base_len + 13 {
+            self.invalid_frames += 1;
+            return;
+        }
         let sig_start = base_len;
         let link_id = data[sig_start];
         let ts_bytes = &data[sig_start + 1..sig_start + 7];
         let sig_bytes = &data[sig_start + 7..sig_start + 13];
 
         let ts = u64::from_le_bytes([
-            ts_bytes[0], ts_bytes[1], ts_bytes[2], ts_bytes[3],
-            ts_bytes[4], ts_bytes[5], 0, 0,
+            ts_bytes[0],
+            ts_bytes[1],
+            ts_bytes[2],
+            ts_bytes[3],
+            ts_bytes[4],
+            ts_bytes[5],
+            0,
+            0,
         ]);
 
+        // Verificar assinatura: SHA256(key + frame_sem_assinatura + link_id + ts)
         let frame_without_sig = &data[..sig_start];
         let mut hasher = Sha256::new();
         hasher.update(&self.secret_key);
@@ -143,6 +179,7 @@ impl MavlinkReceiver {
             return;
         }
 
+        // IDS-RULE-003: replay (timestamp <= ultimo aceite)
         let key = (sysid, compid, link_id);
         let last = self.last_timestamp.get(&key).copied().unwrap_or(0);
         if ts <= last {
@@ -151,8 +188,12 @@ impl MavlinkReceiver {
             return;
         }
 
+        // IDS-RULE-004: gap de timestamp
         if last > 0 && ts - last > self.config.max_ts_gap {
-            self.alerts.push(IdsAlert::TimestampGap { sysid, gap: ts - last });
+            self.alerts.push(IdsAlert::TimestampGap {
+                sysid,
+                gap: ts - last,
+            });
         }
 
         self.last_timestamp.insert(key, ts);
@@ -162,10 +203,16 @@ impl MavlinkReceiver {
     fn check_rate(&mut self, sysid: u8) {
         let now = Instant::now();
         let entry = self.rate_counter.entry(sysid).or_insert((0, now));
-        if now.duration_since(entry.1).as_secs() >= 1 { entry.0 = 0; entry.1 = now; }
+        if now.duration_since(entry.1).as_secs() >= 1 {
+            entry.0 = 0;
+            entry.1 = now;
+        }
         entry.0 += 1;
         if entry.0 > self.config.max_rate_per_sec {
-            self.alerts.push(IdsAlert::Flooding { sysid, rate: entry.0 });
+            self.alerts.push(IdsAlert::Flooding {
+                sysid,
+                rate: entry.0,
+            });
         }
     }
 
@@ -173,11 +220,22 @@ impl MavlinkReceiver {
         let now = Instant::now();
         let entry = self.invalid_sig_counter.entry(sysid).or_insert((0, now));
         if now.duration_since(entry.1).as_secs() >= self.config.invalid_sig_window_s {
-            entry.0 = 0; entry.1 = now;
+            entry.0 = 0;
+            entry.1 = now;
         }
         entry.0 += 1;
         if entry.0 >= self.config.max_invalid_sigs {
-            self.alerts.push(IdsAlert::Bruteforce { sysid, failures: entry.0 });
+            self.alerts.push(IdsAlert::Bruteforce {
+                sysid,
+                failures: entry.0,
+            });
         }
+    }
+
+    /// Wrapper publico para fuzzing — NAO usar em producao.
+    /// Alimenta bytes diretamente ao parser sem passar pelo socket.
+    /// Permite ao cargo-fuzz explorar o parser com bytes arbitrarios.
+    pub fn feed_bytes(&mut self, data: &[u8]) {
+        self.process_frame(data);
     }
 }
