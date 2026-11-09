@@ -221,3 +221,24 @@ O signing foi validado com um verificador independente (PowerShell, `System.Secu
 - **Todas assinadas** (bit `incompat_flags & 0x01` ativo)
 - **Todas validas** (SHA-256 calculado em Rust == SHA-256 calculado em PowerShell)
 - **Anti-replay:** timestamp 1986 -> 2648 entre sessoes (nunca recomeca)
+
+
+### Testes do IDS (6/6 regras validadas)
+
+O `MavlinkReceiver` foi testado com **2 ficheiros de teste** que simulam 7 ataques:
+
+| Ficheiro | Teste | Regra IDS | Resultado |
+| :--- | :--- | :--- | :--- |
+| `ids_test.rs` | 5 pacotes legítimos | — | 5 válidos, 0 alertas |
+| `ids_test.rs` | 3 com chave errada | IDS-RULE-002, 005 | 3 inválidos, 6 alertas (INVALID_SIGNATURE + UNKNOWN_SYSID) |
+| `ids_test.rs` | 2 legítimos (ts continua) | IDS-RULE-003 | 7 válidos (sem replay) |
+| `ids_test.rs` | 1 sysid desconhecido (42) | IDS-RULE-002 | 1 alerta (UNKNOWN_SYSID) |
+| `ids_test2.rs` | 60 pacotes rápidos | IDS-RULE-001 | 10 alertas (FLOODING) |
+| `ids_test2.rs` | Timestamp +200 | IDS-RULE-004 | 1 alerta (TIMESTAMP_GAP) |
+| `ids_test2.rs` | 12 chaves erradas | IDS-RULE-006 | 3 alertas (BRUTEFORCE) |
+
+**Resultado final:** 6/6 regras IDS validadas. Os testes correm com:
+
+```powershell
+cargo run -p rnfc-mavlink --bin ids_test
+cargo run -p rnfc-mavlink --bin ids_test2
