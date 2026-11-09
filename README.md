@@ -2,6 +2,12 @@
 
 
 
+[![CI](https://github.com/andreoliveira/rnfc/actions/workflows/ci.yml/badge.svg)](https://github.com/andreoliveira/rnfc/actions/workflows/ci.yml)
+[![Kani](https://github.com/andreoliveira/rnfc/actions/workflows/kani.yml/badge.svg)](https://github.com/andreoliveira/rnfc/actions/workflows/kani.yml)
+[![Docs](https://github.com/andreoliveira/rnfc/actions/workflows/docs.yml/badge.svg)](https://github.com/andreoliveira/rnfc/actions/workflows/docs.yml)
+
+
+
 Sistema de navegação e controlo de voo para aeronaves não tripuladas, escrito \*\*100% em Rust\*\*, projetado para operar em ambientes de \*\*GNSS negado\*\* e com \*\*verificação formal\*\* (Kani) do núcleo de navegação.
 
 

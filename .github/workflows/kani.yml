@@ -1,0 +1,23 @@
+# Kani verification: PID + Guidance + Kalman3D
+# Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+
+name: Kani
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  kani:
+    name: Kani proofs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Kani
+        run: |
+          cargo install --locked kani-verifier
+          cargo kani setup
+      - name: Run Kani on rnfc-core
+        run: cargo kani -p rnfc-core
