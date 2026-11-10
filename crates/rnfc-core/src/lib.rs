@@ -88,3 +88,65 @@ impl NavCore {
 
 pub mod fusion_mag;
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rnfc_abstractions::{ImuSample, GnssFix};
+
+    fn imu_still() -> ImuSample {
+        ImuSample { accel: [0.0, 0.0, -9.81], gyro: [0.0, 0.0, 0.0], dt: 0.01 }
+    }
+
+    fn gnss_at(n: f32, e: f32) -> GnssFix {
+        GnssFix { position: [n, e, 0.0], velocity: [0.0, 0.0, 0.0], hdop: 1.0 }
+    }
+
+    #[test]
+    fn new_starts_at_origin() {
+        let nav = NavCore::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]);
+        let p = nav.position();
+        assert_eq!(p[0], 0.0);
+        assert_eq!(p[1], 0.0);
+        assert_eq!(p[2], 0.0);
+    }
+
+    #[test]
+    fn no_nan_after_many_steps() {
+        let mut nav = NavCore::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]);
+        let imu = imu_still();
+        let gnss = gnss_at(10.0, 20.0);
+        for _ in 0..1000 {
+            nav.step(&imu, Some(&gnss));
+            let p = nav.position();
+            assert!(p[0].is_finite(), "north NaN/inf");
+            assert!(p[1].is_finite(), "east NaN/inf");
+            assert!(p[2].is_finite(), "down NaN/inf");
+        }
+    }
+
+    #[test]
+    fn gnss_fix_pulls_position_toward_fix() {
+        let mut nav = NavCore::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]);
+        let imu = imu_still();
+        let gnss = gnss_at(50.0, 30.0);
+        for _ in 0..200 {
+            nav.step(&imu, Some(&gnss));
+        }
+        let p = nav.position();
+        let dist_to_fix = ((p[0] - 50.0).powi(2) + (p[1] - 30.0).powi(2)).sqrt();
+        assert!(dist_to_fix < 5.0, "dist ao fix = {:.2}m (devia < 5m)", dist_to_fix);
+    }
+
+    #[test]
+    fn no_gnss_no_movement() {
+        let mut nav = NavCore::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]);
+        let imu = imu_still();
+        for _ in 0..100 {
+            nav.step(&imu, None);
+        }
+        let p = nav.position();
+        let dist = (p[0].powi(2) + p[1].powi(2)).sqrt();
+        assert!(dist < 1.0, "moveu {:.2}m sem GNSS", dist);
+    }
+}
