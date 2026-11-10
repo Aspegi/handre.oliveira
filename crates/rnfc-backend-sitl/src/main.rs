@@ -1,4 +1,4 @@
-// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+﻿// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
 // Autor: Andre Oliveira <handre.oliveira@gmail.com>
 // Projeto: RNFC - Resilient Navigation & Flight Control
 // Licenca: Proprietaria (ver LICENSE)
@@ -65,12 +65,12 @@ fn main() {
     println!("Perna 1 -> A: {} waypoints, {:.1}m", plan.len(), trajectory.total_length);
 
     // === Parametros Ultra Zenite ===
-    let max_speed = 35.0_f32;
+    let max_speed = 8.0_f32;
     let max_pitch = 20.0_f32.to_radians();
     let a_lat_max = 3.0_f32;
     let lookahead_base = 4.0_f32;
     let lookahead_speed_gain = 0.6_f32;
-    let arrival_radius = 4.0_f32;
+    let arrival_radius = 2.0_f32;
 
     let mut roll: f32 = 0.0;
     let mut pitch: f32 = 0.0;
@@ -295,7 +295,7 @@ fn main() {
         // Em DIRECT MODE, ignorar v_curve (a trajetoria antiga nao e relevante)
         let v_target = if direct_mode {
             if dist_to_goal < 25.0 {
-                (dist_to_goal / 25.0 * max_speed).max(3.0)
+                (dist_to_goal / 25.0 * max_speed).max(0.5)
             } else {
                 max_speed
             }
@@ -331,12 +331,12 @@ fn main() {
         }
         let gust_n = if gust_active && t < 65.0 { 5.0 } else { 0.0 };
         let gust_e = if gust_active && t < 65.0 { 3.0 } else { 0.0 };
-        let vel_n = effective_speed * yaw.cos() + WIND_N + gust_n;
-        let vel_e = effective_speed * yaw.sin() + WIND_E + gust_e;
+        let wind_scale = if dist_to_goal < 15.0 { 0.0 } else { 1.0 }; let vel_n = effective_speed * yaw.cos() + (WIND_N + gust_n) * wind_scale;
+        let vel_e = effective_speed * yaw.sin() + (WIND_E + gust_e) * wind_scale;
         let new_pos = [pos[0] + vel_n * dt, pos[1] + vel_e * dt, 0.0];
 
         // === Chegada a este waypoint ===
-        let effective_arrival = if direct_mode { 8.0 } else { arrival_radius };
+        let effective_arrival = arrival_radius;
         if dist_to_goal < effective_arrival {
             // Chegou ao waypoint - mudar para o proximo
             println!("    -> Waypoint {} atingido em t={:.2}s (perna {:.1}s) | pos=({:.1},{:.1})",
@@ -397,3 +397,6 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
+
+

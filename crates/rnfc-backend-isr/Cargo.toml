@@ -9,3 +9,4 @@ rnfc-core = { path = "../rnfc-core" }
 rnfc-daa = { path = "../rnfc-daa" }
 rnfc-surveillance = { path = "../rnfc-surveillance" }
 rnfc-abstractions = { path = "../rnfc-abstractions" }
+rnfc-mavlink = { path = "../rnfc-mavlink" }

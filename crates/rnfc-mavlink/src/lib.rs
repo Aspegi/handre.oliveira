@@ -2,8 +2,6 @@
 //! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
 #![deny(unsafe_code)]
 
-pub mod receiver;
-
 use sha2::{Digest, Sha256};
 use std::net::UdpSocket;
 use std::time::Instant;
@@ -18,6 +16,7 @@ pub struct MavlinkSender {
     pub stats_heartbeats: u64,
     pub stats_attitudes: u64,
     pub stats_errors: u64,
+    pub stats_image_chunks: u64,
     secret_key: Option<[u8; 32]>,
     #[allow(dead_code)]
     link_id: u8,
@@ -28,10 +27,19 @@ impl MavlinkSender {
     pub fn new(target: &str, sysid: u8, compid: u8) -> std::io::Result<Self> {
         let socket = UdpSocket::bind("0.0.0.0:0")?;
         Ok(Self {
-            socket, target: target.to_string(), sysid, compid,
-            seq: 0, start: Instant::now(),
-            stats_heartbeats: 0, stats_attitudes: 0, stats_errors: 0,
-            secret_key: None, link_id: 0, signing_timestamp: 0,
+            socket,
+            target: target.to_string(),
+            sysid,
+            compid,
+            seq: 0,
+            start: Instant::now(),
+            stats_heartbeats: 0,
+            stats_attitudes: 0,
+            stats_errors: 0,
+            stats_image_chunks: 0,
+            secret_key: None,
+            link_id: 0,
+            signing_timestamp: 0,
         })
     }
 
@@ -40,13 +48,28 @@ impl MavlinkSender {
         self.link_id = link_id;
     }
 
-    pub fn disable_signing(&mut self) { self.secret_key = None; }
+    pub fn disable_signing(&mut self) {
+        self.secret_key = None;
+    }
 
-    pub fn set_signing_timestamp(&mut self, ts: u64) { self.signing_timestamp = ts; }
-    pub fn signing_timestamp(&self) -> u64 { self.signing_timestamp }
-    pub fn is_signing_enabled(&self) -> bool { self.secret_key.is_some() }
+    pub fn set_signing_timestamp(&mut self, ts: u64) {
+        self.signing_timestamp = ts;
+    }
 
-    fn send_frame(&mut self, msg_id: u32, payload: &[u8], crc_extra: u8) -> std::io::Result<usize> {
+    pub fn signing_timestamp(&self) -> u64 {
+        self.signing_timestamp
+    }
+
+    pub fn is_signing_enabled(&self) -> bool {
+        self.secret_key.is_some()
+    }
+
+    fn send_frame(
+        &mut self,
+        msg_id: u32,
+        payload: &[u8],
+        crc_extra: u8,
+    ) -> std::io::Result<usize> {
         let signing = self.secret_key.is_some();
         let mut frame = Vec::with_capacity(12 + payload.len() + 2 + if signing { 13 } else { 0 });
         frame.push(0xFD);
@@ -62,7 +85,9 @@ impl MavlinkSender {
         frame.extend_from_slice(payload);
 
         let mut crc: u16 = 0xFFFF;
-        for &b in &frame[1..] { crc_accumulate(&mut crc, b); }
+        for &b in &frame[1..] {
+            crc_accumulate(&mut crc, b);
+        }
         crc_accumulate(&mut crc, crc_extra);
         frame.push((crc & 0xFF) as u8);
         frame.push(((crc >> 8) & 0xFF) as u8);
@@ -87,21 +112,36 @@ impl MavlinkSender {
         Ok(n)
     }
 
+    /// HEARTBEAT (msg id 0, crc_extra 50).
     pub fn send_heartbeat(&mut self) -> std::io::Result<()> {
         let mut payload = Vec::with_capacity(9);
         payload.extend_from_slice(&0u32.to_le_bytes());
-        payload.push(2); payload.push(0); payload.push(0);
-        payload.push(4); payload.push(3);
+        payload.push(2);
+        payload.push(0);
+        payload.push(0);
+        payload.push(4);
+        payload.push(3);
         match self.send_frame(0, &payload, 50) {
-            Ok(_) => { self.stats_heartbeats += 1; Ok(()) }
-            Err(e) => { self.stats_errors += 1; Err(e) }
+            Ok(_) => {
+                self.stats_heartbeats += 1;
+                Ok(())
+            }
+            Err(e) => {
+                self.stats_errors += 1;
+                Err(e)
+            }
         }
     }
 
+    /// ATTITUDE (msg id 30, crc_extra 39).
     pub fn send_attitude(
         &mut self,
-        roll: f32, pitch: f32, yaw: f32,
-        rollspeed: f32, pitchspeed: f32, yawspeed: f32,
+        roll: f32,
+        pitch: f32,
+        yaw: f32,
+        rollspeed: f32,
+        pitchspeed: f32,
+        yawspeed: f32,
     ) -> std::io::Result<()> {
         let t_ms = self.start.elapsed().as_millis() as u32;
         let mut payload = Vec::with_capacity(28);
@@ -113,8 +153,54 @@ impl MavlinkSender {
         payload.extend_from_slice(&pitchspeed.to_le_bytes());
         payload.extend_from_slice(&yawspeed.to_le_bytes());
         match self.send_frame(30, &payload, 39) {
-            Ok(_) => { self.stats_attitudes += 1; Ok(()) }
-            Err(e) => { self.stats_errors += 1; Err(e) }
+            Ok(_) => {
+                self.stats_attitudes += 1;
+                Ok(())
+            }
+            Err(e) => {
+                self.stats_errors += 1;
+                Err(e)
+            }
+        }
+    }
+
+    /// DATA_TRANSMISSION_HANDSHAKE (msg id 130, crc_extra 29).
+    /// Anuncia um novo stream de imagem. O GCS deve preparar-se para
+    /// receber `packets` chunks de `payload` bytes cada.
+    pub fn send_image_handshake(
+        &mut self,
+        width: u16,
+        height: u16,
+        size: u32,
+        packets: u16,
+        payload: u8,
+    ) -> std::io::Result<()> {
+        let mut buf = Vec::with_capacity(14);
+        buf.extend_from_slice(&size.to_le_bytes());
+        buf.extend_from_slice(&0u16.to_le_bytes()); // seq = 0
+        buf.extend_from_slice(&width.to_le_bytes());
+        buf.extend_from_slice(&height.to_le_bytes());
+        buf.extend_from_slice(&packets.to_le_bytes());
+        buf.push(0); // type = 0 (raw/JPEG-agnostic)
+        buf.push(payload);
+        self.send_frame(130, &buf, 29).map(|_| ())
+    }
+
+    /// ENCAPSULATED_DATA (msg id 131, crc_extra 223).
+    /// Envia um chunk da imagem. O payload maximo e 253 bytes.
+    pub fn send_image_chunk(&mut self, seqnr: u16, data: &[u8]) -> std::io::Result<()> {
+        let mut buf = Vec::with_capacity(2 + data.len());
+        buf.extend_from_slice(&seqnr.to_le_bytes());
+        buf.extend_from_slice(data);
+        match self.send_frame(131, &buf, 223) {
+            Ok(_) => {
+                self.stats_image_chunks += 1;
+                Ok(())
+            }
+            Err(e) => {
+                self.stats_errors += 1;
+                Err(e)
+            }
         }
     }
 }

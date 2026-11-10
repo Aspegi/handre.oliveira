@@ -213,6 +213,7 @@ dependencies = [
  "rnfc-abstractions",
  "rnfc-core",
  "rnfc-daa",
+ "rnfc-mavlink",
  "rnfc-surveillance",
 ]
 
