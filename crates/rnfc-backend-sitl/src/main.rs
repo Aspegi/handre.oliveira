@@ -310,7 +310,7 @@ fn main() {
         let sp_pitch = (v_target / max_speed) * max_pitch;
         let setpoints = [0.0_f32, sp_pitch, sp_yaw];
 
-        let measured = [roll, pitch, yaw];
+        let measured = [roll, pitch, fusion_mag.yaw];
         let cmd = controller.update(setpoints, measured, dt);
 
         let damping = 0.8_f32;
@@ -420,6 +420,7 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
 
 
 
