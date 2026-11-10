@@ -11,3 +11,8 @@ run_*.log
 *.bak*
 run_*.log
 
+
+frame_*.ppm
+frame_*.png
+run_*.log
+*.bak*
