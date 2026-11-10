@@ -79,3 +79,91 @@ mod tests {
         assert!(f.yaw > -0.2);
     }
 }
+
+impl FusionMag {
+    /// Atualiza com magnetometro 3D (body frame) + tilt compensation (AN3192).
+    /// Compensa roll/pitch para recuperar heading mesmo com drone inclinado.
+    pub fn update_3d(&mut self, mb_n: f32, mb_e: f32, mb_d: f32,
+                     roll: f32, pitch: f32, gyro_yaw_rate: f32, dt: f32) {
+        let sr = libm::sinf(roll);
+        let cr = libm::cosf(roll);
+        let sp = libm::sinf(pitch);
+        let cp = libm::cosf(pitch);
+
+        // Projecao do vetor corpo no plano horizontal (AN3192)
+        let xh = mb_n * cp + mb_d * sp;
+        let yh = mb_n * sr * sp + mb_e * cr - mb_d * sr * cp;
+
+        let mag_yaw = libm::atan2f(-yh, xh) - self.declination;
+
+        let gyro_yaw = self.yaw + gyro_yaw_rate * dt;
+        let mut err = mag_yaw - gyro_yaw;
+        while err >  core::f32::consts::PI { err -= 2.0 * core::f32::consts::PI; }
+        while err < -core::f32::consts::PI { err += 2.0 * core::f32::consts::PI; }
+
+        self.yaw = gyro_yaw + (1.0 - self.alpha) * err;
+        while self.yaw >  core::f32::consts::PI { self.yaw -= 2.0 * core::f32::consts::PI; }
+        while self.yaw < -core::f32::consts::PI { self.yaw += 2.0 * core::f32::consts::PI; }
+    }
+}
+
+#[cfg(test)]
+mod tests_3d {
+    use super::*;
+    const PI: f32 = core::f32::consts::PI;
+
+    /// Gera leitura de magnetometro em body frame (world field [H,0,0]).
+    fn body_mag(h: f32, yaw: f32, pitch: f32, roll: f32) -> (f32, f32, f32) {
+        let cy = yaw.cos(); let sy = yaw.sin();
+        let cp = pitch.cos(); let sp = pitch.sin();
+        let cf = roll.cos(); let sf = roll.sin();
+        let mb_n = h * cp * cy;
+        let mb_e = -h * sy * cf + h * sp * cy * sf;
+        let mb_d = h * sy * sf + h * sp * cy * cf;
+        (mb_n, mb_e, mb_d)
+    }
+
+    fn run(f: &mut FusionMag, h: f32, yaw: f32, pitch: f32, roll: f32) {
+        let (mb_n, mb_e, mb_d) = body_mag(h, yaw, pitch, roll);
+        for _ in 0..200 {
+            f.update_3d(mb_n, mb_e, mb_d, roll, pitch, 0.0, 0.01);
+        }
+    }
+
+    #[test]
+    fn level_returns_correct_yaw() {
+        for &yaw in &[0.0_f32, PI/4.0, -PI/4.0, PI, -PI/2.0] {
+            let mut f = FusionMag::new(0.0);
+            f.yaw = yaw;
+            run(&mut f, 50.0, yaw, 0.0, 0.0);
+            let err = (f.yaw - yaw).abs();
+            assert!(err < 0.05, "level yaw={} err={}", yaw, err);
+        }
+    }
+
+    #[test]
+    fn pitched_returns_correct_yaw() {
+        for &yaw in &[0.0_f32, PI/4.0, PI/2.0, -PI/2.0, PI] {
+            for &pitch in &[0.1_f32, 0.3, 0.5] {
+                let mut f = FusionMag::new(0.0);
+                f.yaw = yaw;
+                run(&mut f, 50.0, yaw, pitch, 0.0);
+                let err = (f.yaw - yaw).abs();
+                assert!(err < 0.05, "pitch yaw={} pitch={} err={}", yaw, pitch, err);
+            }
+        }
+    }
+
+    #[test]
+    fn rolled_returns_correct_yaw() {
+        for &yaw in &[0.0_f32, PI/4.0, PI/2.0, -PI/2.0, PI] {
+            for &roll in &[0.1_f32, 0.3, 0.5] {
+                let mut f = FusionMag::new(0.0);
+                f.yaw = yaw;
+                run(&mut f, 50.0, yaw, 0.0, roll);
+                let err = (f.yaw - yaw).abs();
+                assert!(err < 0.05, "roll yaw={} roll={} err={}", yaw, roll, err);
+            }
+        }
+    }
+}
