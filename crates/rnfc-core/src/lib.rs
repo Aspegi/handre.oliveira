@@ -86,5 +86,5 @@ impl NavCore {
     }
 }
 
-
+pub mod fusion_mag;
 

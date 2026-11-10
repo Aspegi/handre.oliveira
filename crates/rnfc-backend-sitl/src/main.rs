@@ -6,6 +6,7 @@
 use rnfc_abstractions::{GnssFix, ImuSample};
 use rnfc_core::attitude_controller::AttitudeController;
 use rnfc_core::NavCore;
+use rnfc_core::fusion_mag::FusionMag;
 use rnfc_daa::trajectory::Trajectory;
 use rnfc_daa::{plan_astar, LidarSim, Obstacle, OccupancyGrid};
 use rnfc_mavlink::MavlinkSender;
@@ -78,6 +79,10 @@ fn main() {
     let mut roll_rate: f32 = 0.0;
     let mut pitch_rate: f32 = 0.0;
     let mut yaw_rate: f32 = 0.0;
+    let mut yaw_gyro_only: f32 = 0.0;
+    let mut fusion_mag = FusionMag::new(0.0);
+    const GYRO_BIAS: f32 = 0.002;
+    const MAG_NORM: f32 = 50.0;
 
     let dt = 0.01_f32;
 
@@ -316,6 +321,24 @@ fn main() {
         roll  += roll_rate  * dt;
         pitch += pitch_rate * dt;
         yaw   += yaw_rate   * dt;
+
+        // === Passo 9: simulacao magnetometro + fusao (diagnostico) ===
+        yaw_gyro_only += (yaw_rate + GYRO_BIAS) * dt;
+        let mag_n = MAG_NORM * yaw.cos() + 0.5 * ((i as f32 * 0.7).sin());
+        let mag_e = MAG_NORM * yaw.sin() + 0.5 * ((i as f32 * 1.3).sin());
+        fusion_mag.update(mag_n, mag_e, yaw_rate + GYRO_BIAS, dt);
+        if i % 2000 == 0 {
+            let true_d = yaw * 180.0 / core::f32::consts::PI;
+            let gyro_d = yaw_gyro_only * 180.0 / core::f32::consts::PI;
+            let fused_d = fusion_mag.yaw * 180.0 / core::f32::consts::PI;
+            let mut drift = gyro_d - true_d;
+            while drift > 180.0 { drift -= 360.0; }
+            while drift < -180.0 { drift += 360.0; }
+            let mut err = fused_d - true_d;
+            while err > 180.0 { err -= 360.0; }
+            while err < -180.0 { err += 360.0; }
+            println!("    [FUSION] t={:.1}s | yaw_true={:.1}deg | yaw_gyro={:.1}deg (drift={:+.1}deg) | yaw_fused={:.1}deg (err={:+.1}deg)", t, true_d, gyro_d, drift, fused_d, err);
+        }
 
         let accel_max = 10.0_f32;
         let desired = max_speed * (pitch.abs() / max_pitch).min(1.0);
