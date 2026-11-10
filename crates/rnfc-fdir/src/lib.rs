@@ -423,4 +423,45 @@ mod tests_voter {
         }
     }
 }
+#[cfg(test)]
+mod tests_layered_defense {
+    use super::*;
+    use crate::SpoofingDetector;
 
+    /// LIMITE DOCUMENTADO: se 2 de 3 sensores forem spoofed para o MESMO valor,
+    /// o SensorVoter escolhe a maioria errada. So a defesa em camadas (SpoofingDetector
+    /// com gyro) deteta. Este teste prova a limitacao + a defesa em profundidade.
+    #[test]
+    fn layered_defense_2_of_3_compromised() {
+        // 1 sensor real (50), 2 spoofed (65 cada - mesma direcao)
+        let v = SensorVoter::new();
+        let r = v.vote(50.0, 65.0, 65.0);
+
+        // Voter comprometido: escolhe os 2 spoofed (maioria falsa)
+        assert_eq!(r.status, SensorStatus::OneDegraded,
+            "Voter isola a minoria (sensor real) - LIMITACAO do 2-of-3 sem temporal analysis");
+        assert!((r.value - 65.0).abs() < 1.0,
+            "Voter usa valor spoofed {} (devia ser 50, mas e limitacao conhecida)", r.value);
+
+        // Defesa em camadas: SpoofingDetector usa gyro (nao-mag) para verificar
+        let mut sd = SpoofingDetector::new();
+        let gyro_yaw = 0.0;
+        let spoofed_yaw = 0.52; // +30 graus
+        let mut detected = false;
+        for _ in 0..200 {
+            if sd.update(spoofed_yaw, gyro_yaw) { detected = true; break; }
+        }
+        assert!(detected,
+            "SpoofingDetector DEVE detetar mesmo com SensorVoter comprometido - defesa em profundidade");
+    }
+
+    /// Verifica que 2 sensores espalhados (nao concordantes) NAO enganam o voter
+    #[test]
+    fn two_random_outliers_not_same_value_isolated() {
+        let v = SensorVoter::new();
+        // mag1=50 (real), mag2=100 (outlier aleatorio), mag3=150 (outlier aleatorio)
+        let r = v.vote(50.0, 100.0, 150.0);
+        assert_eq!(r.status, SensorStatus::TotalFailure,
+            "Sem concordancia entre spoofed, voter declara TotalFailure");
+    }
+}
