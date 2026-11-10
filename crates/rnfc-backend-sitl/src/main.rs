@@ -409,7 +409,7 @@ fn main() {
         }
         // LATCh: failsafe ativado NAO desativa (aeroespacial standard)
         // Uma vez em RTL/Hover, mantem-se ate ao fim da missao
-        if failsafe_active && t - failsafe_t_start > 5.0 {
+        if failsafe_active && t - failsafe_t_start > 5.0 && (t - failsafe_t_start) < 5.02 {
             // So log "persistente" uma vez
             if (t - failsafe_t_start) < 5.02 {
                 println!("    *** FDIR: failsafe persistente (durou {:.1}s) ***", t - failsafe_t_start);
@@ -619,6 +619,7 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
 
 
 
