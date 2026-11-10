@@ -39,3 +39,43 @@ impl FusionMag {
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn yaw_always_bounded_after_update() {
+        let mut f = FusionMag::new(0.0);
+        for mag_n in [-100.0_f32, -50.0, 0.0, 50.0, 100.0] {
+            for mag_e in [-100.0_f32, -50.0, 0.0, 50.0, 100.0] {
+                for gyro in [-10.0_f32, -1.0, 0.0, 1.0, 10.0] {
+                    f.update(mag_n, mag_e, gyro, 0.01);
+                    assert!(f.yaw >= -core::f32::consts::PI);
+                    assert!(f.yaw <=  core::f32::consts::PI);
+                    assert!(!f.yaw.is_nan());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn mag_corrects_gyro_bias() {
+        let truth = 0.5_f32;
+        let mut f = FusionMag::new(0.0);
+        f.yaw = truth;
+        for _ in 0..2000 {
+            f.update(truth.cos() * 50.0, truth.sin() * 50.0, 0.002, 0.01);
+        }
+        let err = (f.yaw - truth).abs();
+        assert!(err < 0.05);
+    }
+
+    #[test]
+    fn declination_offsets_heading() {
+        let mut f = FusionMag::new(0.1);
+        f.update(50.0, 0.0, 0.0, 0.01);
+        assert!(f.yaw < 0.0);
+        assert!(f.yaw > -0.2);
+    }
+}
