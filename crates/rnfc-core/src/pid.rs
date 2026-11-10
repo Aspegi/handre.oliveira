@@ -19,7 +19,9 @@ pub struct PidController {
 impl PidController {
     pub fn new(kp: f32, ki: f32, kd: f32, output_limit: f32, integral_limit: f32) -> Self {
         Self {
-            kp, ki, kd,
+            kp,
+            ki,
+            kd,
             integral: 0.0,
             prev_measured: 0.0,
             output_limit,
@@ -36,8 +38,12 @@ impl PidController {
 
         // Integral com anti-windup (clamping)
         self.integral += error * dt;
-        if self.integral > self.integral_limit { self.integral = self.integral_limit; }
-        if self.integral < -self.integral_limit { self.integral = -self.integral_limit; }
+        if self.integral > self.integral_limit {
+            self.integral = self.integral_limit;
+        }
+        if self.integral < -self.integral_limit {
+            self.integral = -self.integral_limit;
+        }
 
         // Derivada (na primeira iteracao nao ha "anterior")
         let derivative = if self.first_step {
@@ -51,9 +57,13 @@ impl PidController {
         let output = self.kp * error + self.ki * self.integral + self.kd * derivative;
 
         // SaturaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o da saida
-        if output > self.output_limit { self.output_limit }
-        else if output < -self.output_limit { -self.output_limit }
-        else { output }
+        if output > self.output_limit {
+            self.output_limit
+        } else if output < -self.output_limit {
+            -self.output_limit
+        } else {
+            output
+        }
     }
 
     pub fn reset(&mut self) {

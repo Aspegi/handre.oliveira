@@ -12,7 +12,7 @@ pub struct SurveillanceContext {
     pub hovering: bool,
 }
 
-/// Contrato genérico para qualquer sensor de vigilancia.
+/// Contrato genÃƒÂ©rico para qualquer sensor de vigilancia.
 pub trait Payload {
     type Error;
     type Frame;
@@ -30,7 +30,10 @@ pub struct SimulatedCamera {
 
 impl SimulatedCamera {
     pub fn new(resolution: (u32, u32)) -> Self {
-        Self { resolution, frames_captured: 0 }
+        Self {
+            resolution,
+            frames_captured: 0,
+        }
     }
 }
 
@@ -66,17 +69,29 @@ impl SimulatedMicrophone {
     }
 }
 
+impl Default for SimulatedMicrophone {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Payload for SimulatedMicrophone {
     type Error = &'static str;
     type Frame = u64;
 
-    fn init(&mut self) -> Result<(), Self::Error> { Ok(()) }
+    fn init(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     fn capture(&mut self, ctx: &SurveillanceContext) -> Result<Self::Frame, Self::Error> {
-        if !ctx.hovering { return Err("not hovering"); }
+        if !ctx.hovering {
+            return Err("not hovering");
+        }
         self.samples += 1;
         Ok(42)
     }
 
-    fn process(&mut self, f: Self::Frame) -> Result<Self::Frame, Self::Error> { Ok(f) }
+    fn process(&mut self, f: Self::Frame) -> Result<Self::Frame, Self::Error> {
+        Ok(f)
+    }
 }

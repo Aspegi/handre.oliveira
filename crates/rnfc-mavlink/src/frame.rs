@@ -1,4 +1,4 @@
-﻿#![deny(unsafe_code)]
+#![deny(unsafe_code)]
 
 use std::vec::Vec;
 
@@ -55,7 +55,7 @@ pub fn encode_chunk(seq: u8, chunk_idx: u16, data: &[u8]) -> Vec<u8> {
 
 /// Codifica uma imagem completa: 1 handshake + N chunks. Avança *seq.
 pub fn encode_frame(seq: &mut u8, width: u16, height: u16, image: &[u8]) -> Vec<Vec<u8>> {
-    let num_chunks = (image.len() + CHUNK_SIZE - 1) / CHUNK_SIZE;
+    let num_chunks = image.len().div_ceil(CHUNK_SIZE);
     let mut packets = Vec::with_capacity(1 + num_chunks);
     packets.push(encode_handshake(*seq, width, height, num_chunks as u16));
     *seq = seq.wrapping_add(1);

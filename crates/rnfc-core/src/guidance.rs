@@ -18,11 +18,7 @@ pub struct Guidance {
 impl Guidance {
     pub fn new() -> Self {
         Self {
-            waypoints: [
-                [100.0, 50.0, 0.0],
-                [150.0, -30.0, 0.0],
-                [0.0, 0.0, 0.0],
-            ],
+            waypoints: [[100.0, 50.0, 0.0], [150.0, -30.0, 0.0], [0.0, 0.0, 0.0]],
             current_index: 0,
             k_pitch: 0.01,
             max_pitch: 15.0_f32.to_radians(),
@@ -181,14 +177,24 @@ mod tests {
         let mut g = Guidance::new();
         let (sp, _) = g.update([0.0, 0.0, 0.0]);
         let expected = 50.0_f32.atan2(100.0);
-        assert!(approx(sp[2], expected, 1e-3), "yaw={} expected={}", sp[2], expected);
+        assert!(
+            approx(sp[2], expected, 1e-3),
+            "yaw={} expected={}",
+            sp[2],
+            expected
+        );
     }
 
     #[test]
     fn pitch_bounded_by_max_pitch() {
         let mut g = Guidance::new();
         let (sp, _) = g.update([-100000.0, -100000.0, 0.0]);
-        assert!(sp[1] <= g.max_pitch + 1e-6, "pitch={} max={}", sp[1], g.max_pitch);
+        assert!(
+            sp[1] <= g.max_pitch + 1e-6,
+            "pitch={} max={}",
+            sp[1],
+            g.max_pitch
+        );
         assert!(sp[1] > 0.0, "pitch devia ser positivo, got {}", sp[1]);
     }
 

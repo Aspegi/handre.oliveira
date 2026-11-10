@@ -1,6 +1,11 @@
-//! ISR backend - patrol loop + camera/mic payload + MAVLink video.
+﻿//! ISR backend - patrol loop + camera/mic payload + MAVLink video.
 //! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
 #![deny(unsafe_code)]
+#![allow(clippy::manual_div_ceil)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::approx_constant)]
 
 use rnfc_abstractions::{GnssFix, ImuSample};
 use rnfc_core::attitude_controller::AttitudeController;
@@ -53,7 +58,10 @@ fn main() {
 
     println!("=== ISR PATROL + MAVLINK VIDEO ===");
     println!("Missao: A(100,50) -> B(150,-30) -> C(0,0) -> loop");
-    println!("Payload: camera simulada {}x{} RGB + microfone", IMG_W, IMG_H);
+    println!(
+        "Payload: camera simulada {}x{} RGB + microfone",
+        IMG_W, IMG_H
+    );
     println!("MAVLink: DATA_TRANSMISSION_HANDSHAKE + ENCAPSULATED_DATA em 127.0.0.1:14550");
     println!();
 

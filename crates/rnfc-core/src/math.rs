@@ -12,15 +12,27 @@ pub fn normalize_angle(a: f32) -> f32 {
     }
 
     let mut r = a;
-    if r > pi { r -= two_pi; }
-    if r < -pi { r += two_pi; }
-    if r > pi { r -= two_pi; }
-    if r < -pi { r += two_pi; }
+    if r > pi {
+        r -= two_pi;
+    }
+    if r < -pi {
+        r += two_pi;
+    }
+    if r > pi {
+        r -= two_pi;
+    }
+    if r < -pi {
+        r += two_pi;
+    }
 
     // Clamp final de seguranca (garante [-pi, pi] mesmo apos dobras)
-    if r > pi { pi }
-    else if r < -pi { -pi }
-    else { r }
+    if r > pi {
+        pi
+    } else if r < -pi {
+        -pi
+    } else {
+        r
+    }
 }
 
 #[cfg(kani)]
@@ -35,7 +47,11 @@ pub fn sqrtf(x: f32) -> f32 {
         y = 0.5 * (y + x / y);
         i += 1;
     }
-    if !y.is_finite() { 0.0 } else { y }
+    if !y.is_finite() {
+        0.0
+    } else {
+        y
+    }
 }
 
 #[cfg(kani)]
@@ -53,7 +69,13 @@ pub fn atan2f(y: f32, x: f32) -> f32 {
 
     let angle = if x > 0.0 {
         // Q1/Q4: ratio clampado a [-1, 1] ANTES de multiplicar
-        let ratio = if y.abs() < x { y / x } else if y >= 0.0 { 1.0 } else { -1.0 };
+        let ratio = if y.abs() < x {
+            y / x
+        } else if y >= 0.0 {
+            1.0
+        } else {
+            -1.0
+        };
         ratio * (pi * 0.25)
     } else if x < 0.0 {
         // Q2/Q3: ratio clampado a [0, 1] ANTES de multiplicar
@@ -64,13 +86,21 @@ pub fn atan2f(y: f32, x: f32) -> f32 {
             -pi * 0.75 - ratio * (pi * 0.25)
         }
     } else {
-        if y > 0.0 { pi * 0.5 } else { -pi * 0.5 }
+        if y > 0.0 {
+            pi * 0.5
+        } else {
+            -pi * 0.5
+        }
     };
 
     // Clamp final explicito (garante [-pi, pi] por construcao)
-    if angle > pi { pi }
-    else if angle < -pi { -pi }
-    else { angle }
+    if angle > pi {
+        pi
+    } else if angle < -pi {
+        -pi
+    } else {
+        angle
+    }
 }
 
 #[cfg(not(kani))]

@@ -15,10 +15,10 @@ pub struct AttitudeController {
 impl AttitudeController {
     pub fn new() -> Self {
         Self {
-            pid_roll:  PidController::new(4.0, 0.5, 0.8, 1.0, 0.5),
+            pid_roll: PidController::new(4.0, 0.5, 0.8, 1.0, 0.5),
             pid_pitch: PidController::new(4.0, 0.5, 0.8, 1.0, 0.5),
             // Yaw: output_limit=2.5 -> taxa max = 2.5/0.8 = 3.1 rad/s = 178Â°/s
-            pid_yaw:   PidController::new(5.0, 0.3, 1.5, 2.5, 0.5),
+            pid_yaw: PidController::new(5.0, 0.3, 1.5, 2.5, 0.5),
         }
     }
 

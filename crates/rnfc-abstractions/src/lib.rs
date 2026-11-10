@@ -1,4 +1,4 @@
-﻿#![deny(unsafe_code)]
+#![deny(unsafe_code)]
 
 pub struct ImuSample {
     pub accel: [f32; 3],
@@ -11,7 +11,7 @@ pub struct GnssFix {
     pub hdop: f32,
 }
 pub struct MagSample {
-    pub field: [f32; 3],  // NED body frame (uT)
+    pub field: [f32; 3], // NED body frame (uT)
     pub dt: f32,
 }
 

@@ -1,4 +1,4 @@
-﻿//! Integration test: replica o loop de fisica do main.rs
+//! Integration test: replica o loop de fisica do main.rs
 //! sem vento/gust/ataque e verifica que a missao A->B->C completa.
 
 use rnfc_abstractions::{GnssFix, ImuSample};
@@ -45,17 +45,21 @@ fn full_mission_reaches_base() {
         let cmd = ctrl.update(sp, measured, DT);
 
         // Integracao das rates (modelo simples)
-        roll_rate  += (cmd[0] - DAMPING * roll_rate)  * DT;
+        roll_rate += (cmd[0] - DAMPING * roll_rate) * DT;
         pitch_rate += (cmd[1] - DAMPING * pitch_rate) * DT;
-        yaw_rate   += (cmd[2] - DAMPING * yaw_rate)   * DT;
+        yaw_rate += (cmd[2] - DAMPING * yaw_rate) * DT;
 
-        roll  += roll_rate  * DT;
+        roll += roll_rate * DT;
         pitch += pitch_rate * DT;
-        yaw   += yaw_rate   * DT;
+        yaw += yaw_rate * DT;
 
         // Wrap yaw verdadeiro (fisica realista)
-        while yaw >  PI { yaw -= 2.0 * PI; }
-        while yaw < -PI { yaw += 2.0 * PI; }
+        while yaw > PI {
+            yaw -= 2.0 * PI;
+        }
+        while yaw < -PI {
+            yaw += 2.0 * PI;
+        }
 
         // Velocidade proporcional a |pitch|, na direcao do yaw verdadeiro
         let speed = MAX_SPEED * (pitch.abs() / MAX_PITCH).min(1.0);
@@ -83,14 +87,28 @@ fn full_mission_reaches_base() {
         nav.step(&imu, gnss.as_ref());
     }
 
-    assert!(arrived, "missao nao completou em {} iteracoes ({}s). idx={}, pos={:?}",
-            iter, iter as f32 * DT, guide.current_index, nav.position());
+    assert!(
+        arrived,
+        "missao nao completou em {} iteracoes ({}s). idx={}, pos={:?}",
+        iter,
+        iter as f32 * DT,
+        guide.current_index,
+        nav.position()
+    );
 
     let p = nav.position();
     let dist = (p[0].powi(2) + p[1].powi(2)).sqrt();
-    assert!(dist < 5.0, "base a {:.2}m (esperado < 5m) pos={:?}", dist, p);
+    assert!(
+        dist < 5.0,
+        "base a {:.2}m (esperado < 5m) pos={:?}",
+        dist,
+        p
+    );
 
-    println!("[OK] Missao completa em {} iteracoes ({:.1}s), dist base = {:.2}m",
-             iter, iter as f32 * DT, dist);
+    println!(
+        "[OK] Missao completa em {} iteracoes ({:.1}s), dist base = {:.2}m",
+        iter,
+        iter as f32 * DT,
+        dist
+    );
 }
-

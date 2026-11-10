@@ -1,4 +1,4 @@
-﻿//! MAVLink v2 encoder with optional signing for the RNFC.
+//! MAVLink v2 encoder with optional signing for the RNFC.
 //! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
 #![deny(unsafe_code)]
 
@@ -64,12 +64,7 @@ impl MavlinkSender {
         self.secret_key.is_some()
     }
 
-    fn send_frame(
-        &mut self,
-        msg_id: u32,
-        payload: &[u8],
-        crc_extra: u8,
-    ) -> std::io::Result<usize> {
+    fn send_frame(&mut self, msg_id: u32, payload: &[u8], crc_extra: u8) -> std::io::Result<usize> {
         let signing = self.secret_key.is_some();
         let mut frame = Vec::with_capacity(12 + payload.len() + 2 + if signing { 13 } else { 0 });
         frame.push(0xFD);
@@ -212,4 +207,3 @@ fn crc_accumulate(crc: &mut u16, byte: u8) {
 }
 
 pub mod frame;
-

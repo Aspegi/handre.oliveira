@@ -1,44 +1,56 @@
-﻿#![deny(unsafe_code)]
+#![deny(unsafe_code)]
+#![allow(clippy::too_many_arguments)]
 use libm::atan2f;
 
-/// Fusão complementar gyro + magnetómetro para yaw absoluto.
+/// FusÃ£o complementar gyro + magnetÃ³metro para yaw absoluto.
 pub struct FusionMag {
     pub yaw: f32,
-    pub alpha: f32,       // peso do gyro (0.95 típico)
+    pub alpha: f32,       // peso do gyro (0.95 tÃ­pico)
     pub declination: f32, // rad, leste positivo
 }
 
 impl FusionMag {
     pub fn new(declination: f32) -> Self {
-        Self { yaw: 0.0, alpha: 0.95, declination }
+        Self {
+            yaw: 0.0,
+            alpha: 0.95,
+            declination,
+        }
     }
 
     /// mag: campo em body NED (uT). gyro_yaw_rate: rad/s.
     pub fn update(&mut self, mag_n: f32, mag_e: f32, gyro_yaw_rate: f32, dt: f32) {
-        // 1. Heading do magnetómetro (compensar declinação)
+        // 1. Heading do magnetÃ³metro (compensar declinaÃ§Ã£o)
         let mag_yaw = atan2f(mag_e, mag_n) - self.declination;
 
-        // 2. Predição gyro
+        // 2. PrediÃ§Ã£o gyro
         let gyro_yaw = self.yaw + gyro_yaw_rate * dt;
 
         // 3. Wrap do erro para [-pi, pi]
         let mut err = mag_yaw - gyro_yaw;
-        while err >  core::f32::consts::PI { err -= 2.0 * core::f32::consts::PI; }
-        while err < -core::f32::consts::PI { err += 2.0 * core::f32::consts::PI; }
+        while err > core::f32::consts::PI {
+            err -= 2.0 * core::f32::consts::PI;
+        }
+        while err < -core::f32::consts::PI {
+            err += 2.0 * core::f32::consts::PI;
+        }
 
-        // 4. Fusão complementar
+        // 4. FusÃ£o complementar
         self.yaw = gyro_yaw + (1.0 - self.alpha) * err;
 
         // 5. Wrap final
-        while self.yaw >  core::f32::consts::PI { self.yaw -= 2.0 * core::f32::consts::PI; }
-        while self.yaw < -core::f32::consts::PI { self.yaw += 2.0 * core::f32::consts::PI; }
+        while self.yaw > core::f32::consts::PI {
+            self.yaw -= 2.0 * core::f32::consts::PI;
+        }
+        while self.yaw < -core::f32::consts::PI {
+            self.yaw += 2.0 * core::f32::consts::PI;
+        }
     }
 
     pub fn heading_deg(&self) -> f32 {
         self.yaw * 180.0 / core::f32::consts::PI
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -52,7 +64,7 @@ mod tests {
                 for gyro in [-10.0_f32, -1.0, 0.0, 1.0, 10.0] {
                     f.update(mag_n, mag_e, gyro, 0.01);
                     assert!(f.yaw >= -core::f32::consts::PI);
-                    assert!(f.yaw <=  core::f32::consts::PI);
+                    assert!(f.yaw <= core::f32::consts::PI);
                     assert!(!f.yaw.is_nan());
                 }
             }
@@ -83,8 +95,16 @@ mod tests {
 impl FusionMag {
     /// Atualiza com magnetometro 3D (body frame) + tilt compensation (AN3192).
     /// Compensa roll/pitch para recuperar heading mesmo com drone inclinado.
-    pub fn update_3d(&mut self, mb_n: f32, mb_e: f32, mb_d: f32,
-                     roll: f32, pitch: f32, gyro_yaw_rate: f32, dt: f32) {
+    pub fn update_3d(
+        &mut self,
+        mb_n: f32,
+        mb_e: f32,
+        mb_d: f32,
+        roll: f32,
+        pitch: f32,
+        gyro_yaw_rate: f32,
+        dt: f32,
+    ) {
         let sr = libm::sinf(roll);
         let cr = libm::cosf(roll);
         let sp = libm::sinf(pitch);
@@ -98,12 +118,20 @@ impl FusionMag {
 
         let gyro_yaw = self.yaw + gyro_yaw_rate * dt;
         let mut err = mag_yaw - gyro_yaw;
-        while err >  core::f32::consts::PI { err -= 2.0 * core::f32::consts::PI; }
-        while err < -core::f32::consts::PI { err += 2.0 * core::f32::consts::PI; }
+        while err > core::f32::consts::PI {
+            err -= 2.0 * core::f32::consts::PI;
+        }
+        while err < -core::f32::consts::PI {
+            err += 2.0 * core::f32::consts::PI;
+        }
 
         self.yaw = gyro_yaw + (1.0 - self.alpha) * err;
-        while self.yaw >  core::f32::consts::PI { self.yaw -= 2.0 * core::f32::consts::PI; }
-        while self.yaw < -core::f32::consts::PI { self.yaw += 2.0 * core::f32::consts::PI; }
+        while self.yaw > core::f32::consts::PI {
+            self.yaw -= 2.0 * core::f32::consts::PI;
+        }
+        while self.yaw < -core::f32::consts::PI {
+            self.yaw += 2.0 * core::f32::consts::PI;
+        }
     }
 }
 
@@ -114,9 +142,12 @@ mod tests_3d {
 
     /// Gera leitura de magnetometro em body frame (world field [H,0,0]).
     fn body_mag(h: f32, yaw: f32, pitch: f32, roll: f32) -> (f32, f32, f32) {
-        let cy = yaw.cos(); let sy = yaw.sin();
-        let cp = pitch.cos(); let sp = pitch.sin();
-        let cf = roll.cos(); let sf = roll.sin();
+        let cy = yaw.cos();
+        let sy = yaw.sin();
+        let cp = pitch.cos();
+        let sp = pitch.sin();
+        let cf = roll.cos();
+        let sf = roll.sin();
         let mb_n = h * cp * cy;
         let mb_e = -h * sy * cf + h * sp * cy * sf;
         let mb_d = h * sy * sf + h * sp * cy * cf;
@@ -132,7 +163,7 @@ mod tests_3d {
 
     #[test]
     fn level_returns_correct_yaw() {
-        for &yaw in &[0.0_f32, PI/4.0, -PI/4.0, PI, -PI/2.0] {
+        for &yaw in &[0.0_f32, PI / 4.0, -PI / 4.0, PI, -PI / 2.0] {
             let mut f = FusionMag::new(0.0);
             f.yaw = yaw;
             run(&mut f, 50.0, yaw, 0.0, 0.0);
@@ -143,7 +174,7 @@ mod tests_3d {
 
     #[test]
     fn pitched_returns_correct_yaw() {
-        for &yaw in &[0.0_f32, PI/4.0, PI/2.0, -PI/2.0, PI] {
+        for &yaw in &[0.0_f32, PI / 4.0, PI / 2.0, -PI / 2.0, PI] {
             for &pitch in &[0.1_f32, 0.3, 0.5] {
                 let mut f = FusionMag::new(0.0);
                 f.yaw = yaw;
@@ -156,7 +187,7 @@ mod tests_3d {
 
     #[test]
     fn rolled_returns_correct_yaw() {
-        for &yaw in &[0.0_f32, PI/4.0, PI/2.0, -PI/2.0, PI] {
+        for &yaw in &[0.0_f32, PI / 4.0, PI / 2.0, -PI / 2.0, PI] {
             for &roll in &[0.1_f32, 0.3, 0.5] {
                 let mut f = FusionMag::new(0.0);
                 f.yaw = yaw;

@@ -5,21 +5,31 @@
 #![allow(unexpected_cfgs)]
 #![no_std]
 #![deny(unsafe_code)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::erasing_op)]
+#![allow(clippy::identity_op)]
+#![allow(clippy::new_without_default)]
 
 pub mod attitude;
-pub mod math;
-pub mod geodesy;
 pub mod attitude_controller;
 pub mod attitude_fusion;
+pub mod geodesy;
 pub mod guidance;
 pub mod kalman;
+pub mod math;
 pub mod pid;
 pub mod rotation;
 
 use rnfc_abstractions::{GnssFix, ImuSample};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum NavSource { GnssAided, Degraded, Inertial }
+pub enum NavSource {
+    GnssAided,
+    Degraded,
+    Inertial,
+}
 
 const GNSS_TIMEOUT_S: f32 = 1.0;
 const HDOP_MAX: f32 = 5.0;
@@ -50,7 +60,8 @@ impl NavCore {
 
     pub fn step(&mut self, imu: &ImuSample, gnss: Option<&GnssFix>) -> NavState {
         self.att.update(imu.gyro, imu.accel, imu.dt);
-        let accel_ned = rotation::body_to_ned(imu.accel, self.att.roll, self.att.pitch, self.att.yaw);
+        let accel_ned =
+            rotation::body_to_ned(imu.accel, self.att.roll, self.att.pitch, self.att.yaw);
         self.kf.predict(accel_ned, imu.dt);
 
         let usable_gnss = gnss.filter(|f| f.hdop < HDOP_MAX);
@@ -62,7 +73,11 @@ impl NavCore {
             }
             None => {
                 self.gnss_lost_for += imu.dt;
-                self.source = if self.gnss_lost_for > GNSS_TIMEOUT_S { NavSource::Inertial } else { NavSource::Degraded };
+                self.source = if self.gnss_lost_for > GNSS_TIMEOUT_S {
+                    NavSource::Inertial
+                } else {
+                    NavSource::Degraded
+                };
             }
         }
 
@@ -74,10 +89,18 @@ impl NavCore {
         }
     }
 
-    pub fn source(&self) -> NavSource { self.source }
-    pub fn roll(&self) -> f32 { self.att.roll }
-    pub fn pitch(&self) -> f32 { self.att.pitch }
-    pub fn yaw(&self) -> f32 { self.att.yaw }
+    pub fn source(&self) -> NavSource {
+        self.source
+    }
+    pub fn roll(&self) -> f32 {
+        self.att.roll
+    }
+    pub fn pitch(&self) -> f32 {
+        self.att.pitch
+    }
+    pub fn yaw(&self) -> f32 {
+        self.att.yaw
+    }
     pub fn position(&self) -> [f32; 3] {
         [self.kf.x[0][0], self.kf.x[1][0], self.kf.x[2][0]]
     }
@@ -88,18 +111,25 @@ impl NavCore {
 
 pub mod fusion_mag;
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rnfc_abstractions::{ImuSample, GnssFix};
+    use rnfc_abstractions::{GnssFix, ImuSample};
 
     fn imu_still() -> ImuSample {
-        ImuSample { accel: [0.0, 0.0, -9.81], gyro: [0.0, 0.0, 0.0], dt: 0.01 }
+        ImuSample {
+            accel: [0.0, 0.0, -9.81],
+            gyro: [0.0, 0.0, 0.0],
+            dt: 0.01,
+        }
     }
 
     fn gnss_at(n: f32, e: f32) -> GnssFix {
-        GnssFix { position: [n, e, 0.0], velocity: [0.0, 0.0, 0.0], hdop: 1.0 }
+        GnssFix {
+            position: [n, e, 0.0],
+            velocity: [0.0, 0.0, 0.0],
+            hdop: 1.0,
+        }
     }
 
     #[test]
@@ -135,7 +165,11 @@ mod tests {
         }
         let p = nav.position();
         let dist_to_fix = ((p[0] - 50.0).powi(2) + (p[1] - 30.0).powi(2)).sqrt();
-        assert!(dist_to_fix < 5.0, "dist ao fix = {:.2}m (devia < 5m)", dist_to_fix);
+        assert!(
+            dist_to_fix < 5.0,
+            "dist ao fix = {:.2}m (devia < 5m)",
+            dist_to_fix
+        );
     }
 
     #[test]

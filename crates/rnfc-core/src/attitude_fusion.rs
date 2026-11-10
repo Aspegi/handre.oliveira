@@ -15,7 +15,12 @@ pub struct ComplementaryFilter {
 
 impl ComplementaryFilter {
     pub fn new() -> Self {
-        Self { roll: 0.0, pitch: 0.0, yaw: 0.0, alpha: 0.98 }
+        Self {
+            roll: 0.0,
+            pitch: 0.0,
+            yaw: 0.0,
+            alpha: 0.98,
+        }
     }
 
     pub fn update(&mut self, gyro: [f32; 3], accel: [f32; 3], dt: f32) {
@@ -33,7 +38,11 @@ impl ComplementaryFilter {
 
         let two_pi = core::f32::consts::TAU;
         let pi = core::f32::consts::PI;
-        while self.yaw > pi { self.yaw -= two_pi; }
-        while self.yaw < -pi { self.yaw += two_pi; }
+        while self.yaw > pi {
+            self.yaw -= two_pi;
+        }
+        while self.yaw < -pi {
+            self.yaw += two_pi;
+        }
     }
 }
