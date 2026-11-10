@@ -19,7 +19,7 @@ use rnfc_core::NavCore;
 use rnfc_daa::trajectory::Trajectory;
 use rnfc_daa::{plan_astar, LidarSim, Obstacle, OccupancyGrid};
 use rnfc_mavlink::MavlinkSender;
-use rnfc_fdir::{SensorHealth, Failsafe, FailsafeAction, FailsafeTrigger, SpoofingDetector, Health};
+use rnfc_fdir::{SensorHealth, Failsafe, FailsafeAction, FailsafeTrigger, SpoofingDetector, Health, SensorVoter, SensorStatus};
 use std::fs::File;
 use std::io::Write as IoWrite;
 
@@ -102,6 +102,9 @@ fn main() {
     let mut fusion_mag_3d = FusionMag::new(0.0);
     let mut mag_health = SensorHealth::new(0.0);
     let mut spoofing_detector = SpoofingDetector::new();
+    let sensor_voter = SensorVoter::new();
+    let mut voter_was_degraded = false;
+    let mut voter_degraded_since: f32 = -10.0;
     let mut battery_v: f32 = 12.6;
     let failsafe = Failsafe::new();
     let mut failsafe_active = false;
@@ -387,10 +390,31 @@ fn main() {
         let attack_active = t >= 150.0 && t < 160.0;
         let attack_offset = if attack_active { 0.5236_f32 } else { 0.0 };
         let yaw_mag = yaw + attack_offset;
-        let mut mag_n = MAG_NORM * yaw_mag.cos() + 0.5 * ((i as f32 * 0.7).sin());
-        let mut mag_e = MAG_NORM * yaw_mag.sin() + 0.5 * ((i as f32 * 1.3).sin());
-        let mag_stuck = t >= 200.0 && t < 210.0;
-        if mag_stuck { mag_n = 50.0; mag_e = 0.0; }
+        let mag3_attacked = t >= 150.0 && t < 160.0;
+        let mag1_stuck = t >= 200.0 && t < 210.0;
+        let base_n = MAG_NORM * yaw.cos();
+        let base_e = MAG_NORM * yaw.sin();
+        let (mag1_n, mag1_e) = if mag1_stuck { (50.0, 0.0) } else { (base_n, base_e) };
+        let (mag2_n, mag2_e) = (base_n + 1.0, base_e - 1.0);
+        let (mag3_n, mag3_e) = if mag3_attacked {
+            let spoof = yaw + 0.5236;
+            (MAG_NORM * spoof.cos(), MAG_NORM * spoof.sin())
+        } else { (base_n - 1.0, base_e + 1.0) };
+        let vote_n = sensor_voter.vote(mag1_n, mag2_n, mag3_n);
+        let vote_e = sensor_voter.vote(mag1_e, mag2_e, mag3_e);
+        let voter_status = match (vote_n.status, vote_e.status) {
+            (SensorStatus::TotalFailure, _) | (_, SensorStatus::TotalFailure) => SensorStatus::TotalFailure,
+            (SensorStatus::OneDegraded, _) | (_, SensorStatus::OneDegraded) => SensorStatus::OneDegraded,
+            _ => SensorStatus::AllHealthy,
+        };
+        let voter_degraded = matches!(voter_status, SensorStatus::OneDegraded);
+        if voter_degraded && !voter_was_degraded && (t - voter_degraded_since) > 1.0 {
+            if mag3_attacked { println!("    *** FDIR: SensorVoter isolou mag3 (spoof) em t={:.1}s ***", t); }
+            else if mag1_stuck { println!("    *** FDIR: SensorVoter isolou mag1 (stuck) em t={:.1}s ***", t); }
+        }
+        voter_was_degraded = voter_degraded;
+        let mag_n = if matches!(voter_status, SensorStatus::OneDegraded) { vote_n.value } else { mag1_n };
+        let mag_e = if matches!(voter_status, SensorStatus::OneDegraded) { vote_e.value } else { mag1_e };
         let health = mag_health.update(mag_n);
         let mag_yaw_raw = mag_e.atan2(mag_n);
         let spoofing = spoofing_detector.update(mag_yaw_raw, yaw); // usa yaw true para eliminar bias drift
@@ -619,6 +643,10 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
+
+
+
 
 
 

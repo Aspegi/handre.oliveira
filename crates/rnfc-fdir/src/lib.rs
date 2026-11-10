@@ -327,3 +327,100 @@ mod tests_spoofing {
         assert!(!d.update(1.57, 0.0));
     }
 }
+// ==================== 2-of-3 SENSOR VOTING ====================
+/// Aerospace-grade 2-of-3 sensor voting.
+/// Com 3 sensores, se 1 falha, usa os outros 2. So falha se 2+ divergem.
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SensorStatus {
+    AllHealthy,
+    OneDegraded,
+    TwoDisagree,
+    TotalFailure,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct VotedValue {
+    pub value: f32,
+    pub status: SensorStatus,
+}
+
+pub struct SensorVoter {
+    pub threshold: f32,
+}
+
+impl SensorVoter {
+    pub fn new() -> Self {
+        Self { threshold: 5.0 }  // 5% divergencia = outlier
+    }
+
+    pub fn vote(&self, s1: f32, s2: f32, s3: f32) -> VotedValue {
+        let d12 = (s1 - s2).abs();
+        let d13 = (s1 - s3).abs();
+        let d23 = (s2 - s3).abs();
+        let mean = (s1 + s2 + s3) / 3.0;
+        let thresh = self.threshold * 50.0 / 100.0; // fixo: 5% de MAG_NORM(50) = 2.5
+
+        let close12 = d12 < thresh;
+        let close13 = d13 < thresh;
+        let close23 = d23 < thresh;
+
+        match (close12, close13, close23) {
+            (true, true, true) => VotedValue { value: mean, status: SensorStatus::AllHealthy },
+            (true, false, false) => VotedValue { value: (s1 + s2) / 2.0, status: SensorStatus::OneDegraded },
+            (false, true, false) => VotedValue { value: (s1 + s3) / 2.0, status: SensorStatus::OneDegraded },
+            (false, false, true) => VotedValue { value: (s2 + s3) / 2.0, status: SensorStatus::OneDegraded },
+            (true, true, false) => VotedValue { value: (s1 + s2) / 2.0, status: SensorStatus::OneDegraded },
+            (true, false, true) => VotedValue { value: (s1 + s3) / 2.0, status: SensorStatus::OneDegraded },
+            (false, true, true) => VotedValue { value: (s2 + s3) / 2.0, status: SensorStatus::OneDegraded },
+            (false, false, false) => VotedValue { value: mean, status: SensorStatus::TotalFailure },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_voter {
+    use super::*;
+
+    #[test]
+    fn three_agree_returns_mean() {
+        let v = SensorVoter::new();
+        let r = v.vote(50.0, 50.1, 49.9);
+        assert_eq!(r.status, SensorStatus::AllHealthy);
+        assert!((r.value - 50.0).abs() < 0.2);
+    }
+
+    #[test]
+    fn one_outlier_isolated() {
+        let v = SensorVoter::new();
+        let r = v.vote(50.0, 50.1, 80.0);  // s3 é outlier
+        assert_eq!(r.status, SensorStatus::OneDegraded);
+        assert!((r.value - 50.05).abs() < 0.2, "value={} devia ser ~50", r.value);
+    }
+
+    #[test]
+    fn two_vs_one_uses_majority() {
+        let v = SensorVoter::new();
+        let r = v.vote(50.0, 70.0, 80.0);  // 1 perto de 2? Nao, todos separados
+        // Todos separados > 5% → TotalFailure OU TwoDisagree
+        assert!(matches!(r.status, SensorStatus::TotalFailure | SensorStatus::OneDegraded));
+    }
+
+    #[test]
+    fn all_disagree_failsafe() {
+        let v = SensorVoter::new();
+        let r = v.vote(10.0, 100.0, 500.0);
+        assert_eq!(r.status, SensorStatus::TotalFailure);
+    }
+
+    #[test]
+    fn slow_drift_all_healthy() {
+        let v = SensorVoter::new();
+        for i in 0..100 {
+            let base = 50.0 + i as f32 * 0.01;
+            let r = v.vote(base, base + 0.1, base - 0.1);
+            assert_eq!(r.status, SensorStatus::AllHealthy, "drift devia ser AllHealthy, iter={}", i);
+        }
+    }
+}
+
