@@ -321,6 +321,8 @@ fn main() {
         roll  += roll_rate  * dt;
         pitch += pitch_rate * dt;
         yaw   += yaw_rate   * dt;
+        while yaw >  core::f32::consts::PI { yaw -= 2.0 * core::f32::consts::PI; }
+        while yaw < -core::f32::consts::PI { yaw += 2.0 * core::f32::consts::PI; }
 
         // === Passo 9: simulacao magnetometro + fusao (diagnostico) ===
         yaw_gyro_only += (yaw_rate + GYRO_BIAS) * dt;
@@ -420,6 +422,7 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
 
 
 

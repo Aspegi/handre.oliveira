@@ -3,3 +3,7 @@
 *.pdb
 Cargo.lock.bak
 .kani
+
+*.bak*
+run_*.log
+
