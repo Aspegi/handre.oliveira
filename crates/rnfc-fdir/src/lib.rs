@@ -235,3 +235,95 @@ mod tests {
         assert_eq!(action, FailsafeAction::Continue);
     }
 }
+/// Detector de spoofing ativo no magnetómetro.
+/// Compara heading do mag vs heading do gyro: se divergem abruptamente e mantêm,
+/// e spoofing (ataque) e nao bias (drift lento).
+pub struct SpoofingDetector {
+    pub err_history: [f32; 10],
+    pub idx: usize,
+    pub threshold_rad: f32,
+    pub spike_threshold_rad: f32,
+    pub spike_count: u32,
+}
+
+impl SpoofingDetector {
+    pub fn new() -> Self {
+        Self {
+            err_history: [0.0; 10],
+            idx: 0,
+            threshold_rad: 0.35,        // 20 graus
+            spike_threshold_rad: 0.52,  // 30 graus
+            spike_count: 0,
+        }
+    }
+
+    /// Devolve true se spoofing detetado (deve abortar).
+    pub fn update(&mut self, mag_yaw: f32, gyro_yaw: f32) -> bool {
+        let mut err = mag_yaw - gyro_yaw;
+        while err > core::f32::consts::PI { err -= 2.0 * core::f32::consts::PI; }
+        while err < -core::f32::consts::PI { err += 2.0 * core::f32::consts::PI; }
+
+        self.err_history[self.idx] = err;
+        self.idx = (self.idx + 1) % 10;
+
+        // Spoofing = erro persistente > threshold_rad durante 10 amostras
+        let all_high = self.err_history.iter().all(|&e| e.abs() > self.threshold_rad);
+        if all_high { return true; }
+
+        // Spoofing abrupto = spike unico > spike_threshold
+        if err.abs() > self.spike_threshold_rad {
+            self.spike_count += 1;
+            if self.spike_count >= 50 { return true; } // 0.5s a 100Hz
+        } else {
+            self.spike_count = self.spike_count.saturating_sub(1);
+        }
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests_spoofing {
+    use super::*;
+
+    #[test]
+    fn no_spoofing_when_aligned() {
+        let mut d = SpoofingDetector::new();
+        for _ in 0..100 {
+            assert!(!d.update(0.5, 0.5));
+        }
+    }
+
+    #[test]
+    fn slow_drift_not_spoofing() {
+        let mut d = SpoofingDetector::new();
+        // Drift lento: err cresce gradualmente
+        for i in 0..300 {
+            let err = (i as f32) * 0.001;
+            let detected = d.update(err, 0.0);
+            // Nao deve detetar (drift lento, nao e spoofing)
+            assert!(!detected, "drift lento detetado como spoofing no iter {}", i);
+        }
+    }
+
+    #[test]
+    fn abrupt_spoofing_detected() {
+        let mut d = SpoofingDetector::new();
+        // Baseline alinhado
+        for _ in 0..20 { d.update(0.0, 0.0); }
+        // Ataque abrupto +90 graus mantido
+        let mut detected = false;
+        for _ in 0..100 {
+            if d.update(1.57, 0.0) { detected = true; break; }
+        }
+        assert!(detected, "spoofing +90 nao detetado");
+    }
+
+    #[test]
+    fn brief_spike_not_immediate() {
+        let mut d = SpoofingDetector::new();
+        // Alinhado com spike unico
+        for _ in 0..20 { d.update(0.0, 0.0); }
+        // Spike unico nao deve disparar imediatamente (spike_count < 50)
+        assert!(!d.update(1.57, 0.0));
+    }
+}

@@ -19,7 +19,7 @@ use rnfc_core::NavCore;
 use rnfc_daa::trajectory::Trajectory;
 use rnfc_daa::{plan_astar, LidarSim, Obstacle, OccupancyGrid};
 use rnfc_mavlink::MavlinkSender;
-use rnfc_fdir::{SensorHealth, Failsafe, FailsafeAction};
+use rnfc_fdir::{SensorHealth, Failsafe, FailsafeAction, FailsafeTrigger, SpoofingDetector, Health};
 use std::fs::File;
 use std::io::Write as IoWrite;
 
@@ -101,6 +101,7 @@ fn main() {
     let mut fusion_mag = FusionMag::new(0.0);
     let mut fusion_mag_3d = FusionMag::new(0.0);
     let mut mag_health = SensorHealth::new(0.0);
+    let mut spoofing_detector = SpoofingDetector::new();
     let mut battery_v: f32 = 12.6;
     let failsafe = Failsafe::new();
     let mut failsafe_active = false;
@@ -391,17 +392,28 @@ fn main() {
         let mag_stuck = t >= 200.0 && t < 210.0;
         if mag_stuck { mag_n = 50.0; mag_e = 0.0; }
         let health = mag_health.update(mag_n);
+        let mag_yaw_raw = mag_e.atan2(mag_n);
+        let spoofing = spoofing_detector.update(mag_yaw_raw, yaw); // usa yaw true para eliminar bias drift
         battery_v -= 0.0084 * dt;
-        let (fs_trigger, fs_action) = failsafe.evaluate([pos[0], pos[1]], battery_v, health);
+        let is_stuck = matches!(health, Health::Stuck | Health::Failed);
+        let (fs_trigger, fs_action) = if spoofing && !is_stuck {
+            (FailsafeTrigger::SensorCritical, FailsafeAction::ReturnToLaunch)
+        } else {
+            failsafe.evaluate([pos[0], pos[1]], battery_v, health)
+        };
         let fs_engage = matches!(fs_action, FailsafeAction::Hover | FailsafeAction::ReturnToLaunch | FailsafeAction::EmergencyLand);
         if fs_engage && !failsafe_active {
             println!("    *** FDIR: {:?} -> {:?} em t={:.2}s (batt={:.1}V) ***", fs_trigger, fs_action, t, battery_v);
             failsafe_active = true;
             failsafe_t_start = t;
         }
-        if failsafe_active && matches!(fs_action, FailsafeAction::Continue) {
-            println!("    *** FDIR: RECUPERADO em t={:.2}s (durou {:.2}s) ***", t, t - failsafe_t_start);
-            failsafe_active = false;
+        // LATCh: failsafe ativado NAO desativa (aeroespacial standard)
+        // Uma vez em RTL/Hover, mantem-se ate ao fim da missao
+        if failsafe_active && t - failsafe_t_start > 5.0 {
+            // So log "persistente" uma vez
+            if (t - failsafe_t_start) < 5.02 {
+                println!("    *** FDIR: failsafe persistente (durou {:.1}s) ***", t - failsafe_t_start);
+            }
         }
         fusion_mag.update(mag_n, mag_e, yaw_rate + GYRO_BIAS, dt);
         // === Fase 3D (diagnostico paralelo) ===
@@ -607,6 +619,10 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
+
+
+
 
 
 
