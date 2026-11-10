@@ -214,9 +214,10 @@ fn main() {
                 if progress_1s < 0.5 && (t - leg_start_t) > 3.0 {
                     stuck_timer += 1.0;
                     if stuck_timer >= 8.0 {
-                        let mut best_idx = 0;
-                        let mut best_dist = f32::INFINITY;
+                        let mut best_idx = mission_idx;
+                        let mut best_dist = dist_to_goal;
                         for (idx, wp) in mission.iter().enumerate() {
+                            if idx <= mission_idx { continue; }
                             let d = ((pos[0]-wp[0]).powi(2) + (pos[1]-wp[1]).powi(2)).sqrt();
                             if d < best_dist { best_dist = d; best_idx = idx; }
                         }
@@ -426,6 +427,7 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
 
 
 
