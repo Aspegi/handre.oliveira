@@ -1,10 +1,11 @@
-[workspace]
+﻿[workspace]
 resolver = "2"
 members = [
     "crates/rnfc-abstractions",
     "crates/rnfc-core",
     "crates/rnfc-backend-sitl",
     "crates/rnfc-daa",
+    "crates/rnfc-fdir",
     "crates/rnfc-mavlink",
     "crates/rnfc-surveillance",
     "crates/rnfc-backend-isr",
@@ -19,3 +20,4 @@ license = "MIT OR Apache-2.0"
 panic = "abort"
 lto = true
 codegen-units = 1
+

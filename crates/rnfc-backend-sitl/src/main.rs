@@ -19,6 +19,7 @@ use rnfc_core::NavCore;
 use rnfc_daa::trajectory::Trajectory;
 use rnfc_daa::{plan_astar, LidarSim, Obstacle, OccupancyGrid};
 use rnfc_mavlink::MavlinkSender;
+use rnfc_fdir::{SensorHealth, Failsafe, FailsafeAction};
 use std::fs::File;
 use std::io::Write as IoWrite;
 
@@ -99,6 +100,10 @@ fn main() {
     let mut yaw_gyro_only: f32 = 0.0;
     let mut fusion_mag = FusionMag::new(0.0);
     let mut fusion_mag_3d = FusionMag::new(0.0);
+    let mut mag_health = SensorHealth::new(0.0);
+    let failsafe = Failsafe::new();
+    let mut failsafe_active = false;
+    let mut failsafe_t_start: f32 = 0.0;
     const GYRO_BIAS: f32 = 0.002;
     const MAG_NORM: f32 = 50.0;
 
@@ -380,8 +385,22 @@ fn main() {
         let attack_active = t >= 150.0 && t < 160.0;
         let attack_offset = if attack_active { 0.5236_f32 } else { 0.0 };
         let yaw_mag = yaw + attack_offset;
-        let mag_n = MAG_NORM * yaw_mag.cos() + 0.5 * ((i as f32 * 0.7).sin());
-        let mag_e = MAG_NORM * yaw_mag.sin() + 0.5 * ((i as f32 * 1.3).sin());
+        let mut mag_n = MAG_NORM * yaw_mag.cos() + 0.5 * ((i as f32 * 0.7).sin());
+        let mut mag_e = MAG_NORM * yaw_mag.sin() + 0.5 * ((i as f32 * 1.3).sin());
+        let mag_stuck = t >= 200.0 && t < 210.0;
+        if mag_stuck { mag_n = 50.0; mag_e = 0.0; }
+        let health = mag_health.update(mag_n);
+        let (fs_trigger, fs_action) = failsafe.evaluate([pos[0], pos[1]], 12.0, health);
+        let fs_engage = matches!(fs_action, FailsafeAction::Hover | FailsafeAction::ReturnToLaunch | FailsafeAction::EmergencyLand);
+        if fs_engage && !failsafe_active {
+            println!("    *** FDIR: {:?} -> {:?} em t={:.2}s ***", fs_trigger, fs_action, t);
+            failsafe_active = true;
+            failsafe_t_start = t;
+        }
+        if failsafe_active && matches!(fs_action, FailsafeAction::Continue) {
+            println!("    *** FDIR: RECUPERADO em t={:.2}s (durou {:.2}s) ***", t, t - failsafe_t_start);
+            failsafe_active = false;
+        }
         fusion_mag.update(mag_n, mag_e, yaw_rate + GYRO_BIAS, dt);
         // === Fase 3D (diagnostico paralelo) ===
         let yaw_world = yaw
@@ -449,8 +468,13 @@ fn main() {
         let gust_n = if gust_active && t < 65.0 { 5.0 } else { 0.0 };
         let gust_e = if gust_active && t < 65.0 { 3.0 } else { 0.0 };
         let wind_scale = if dist_to_goal < 15.0 { 0.0 } else { 1.0 };
-        let vel_n = effective_speed * yaw.cos() + (WIND_N + gust_n) * wind_scale;
-        let vel_e = effective_speed * yaw.sin() + (WIND_E + gust_e) * wind_scale;
+        let (mut vel_n, mut vel_e) = (
+            effective_speed * yaw.cos() + (WIND_N + gust_n) * wind_scale,
+            effective_speed * yaw.sin() + (WIND_E + gust_e) * wind_scale,
+        );
+        if failsafe_active && matches!(fs_action, FailsafeAction::Hover | FailsafeAction::EmergencyLand) {
+            vel_n = 0.0; vel_e = 0.0;
+        }
         let new_pos = [pos[0] + vel_n * dt, pos[1] + vel_e * dt, 0.0];
 
         // === Chegada a este waypoint ===
@@ -565,5 +589,8 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
+
+
 
 

@@ -224,6 +224,7 @@ dependencies = [
  "rnfc-abstractions",
  "rnfc-core",
  "rnfc-daa",
+ "rnfc-fdir",
  "rnfc-mavlink",
 ]
 
@@ -243,6 +244,10 @@ dependencies = [
  "rnfc-abstractions",
  "rnfc-core",
 ]
+
+[[package]]
+name = "rnfc-fdir"
+version = "0.1.0"
 
 [[package]]
 name = "rnfc-mavlink"
