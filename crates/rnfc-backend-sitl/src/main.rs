@@ -101,6 +101,7 @@ fn main() {
     let mut fusion_mag = FusionMag::new(0.0);
     let mut fusion_mag_3d = FusionMag::new(0.0);
     let mut mag_health = SensorHealth::new(0.0);
+    let mut battery_v: f32 = 12.6;
     let failsafe = Failsafe::new();
     let mut failsafe_active = false;
     let mut failsafe_t_start: f32 = 0.0;
@@ -390,10 +391,11 @@ fn main() {
         let mag_stuck = t >= 200.0 && t < 210.0;
         if mag_stuck { mag_n = 50.0; mag_e = 0.0; }
         let health = mag_health.update(mag_n);
-        let (fs_trigger, fs_action) = failsafe.evaluate([pos[0], pos[1]], 12.0, health);
+        battery_v -= 0.0084 * dt;
+        let (fs_trigger, fs_action) = failsafe.evaluate([pos[0], pos[1]], battery_v, health);
         let fs_engage = matches!(fs_action, FailsafeAction::Hover | FailsafeAction::ReturnToLaunch | FailsafeAction::EmergencyLand);
         if fs_engage && !failsafe_active {
-            println!("    *** FDIR: {:?} -> {:?} em t={:.2}s ***", fs_trigger, fs_action, t);
+            println!("    *** FDIR: {:?} -> {:?} em t={:.2}s (batt={:.1}V) ***", fs_trigger, fs_action, t, battery_v);
             failsafe_active = true;
             failsafe_t_start = t;
         }
@@ -472,8 +474,24 @@ fn main() {
             effective_speed * yaw.cos() + (WIND_N + gust_n) * wind_scale,
             effective_speed * yaw.sin() + (WIND_E + gust_e) * wind_scale,
         );
-        if failsafe_active && matches!(fs_action, FailsafeAction::Hover | FailsafeAction::EmergencyLand) {
-            vel_n = 0.0; vel_e = 0.0;
+        if failsafe_active {
+            match fs_action {
+                FailsafeAction::Hover | FailsafeAction::EmergencyLand => {
+                    vel_n = 0.0; vel_e = 0.0;
+                }
+                FailsafeAction::ReturnToLaunch => {
+                    let dx = -pos[0];
+                    let dy = -pos[1];
+                    let d = (dx*dx + dy*dy).sqrt().max(0.1);
+                    if d > 2.0 {
+                        vel_n = 8.0 * dx / d;
+                        vel_e = 8.0 * dy / d;
+                    } else {
+                        vel_n = 0.0; vel_e = 0.0;
+                    }
+                }
+                _ => {}
+            }
         }
         let new_pos = [pos[0] + vel_n * dt, pos[1] + vel_e * dt, 0.0];
 
@@ -589,6 +607,8 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
+
 
 
 
