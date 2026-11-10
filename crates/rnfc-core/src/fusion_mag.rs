@@ -38,3 +38,4 @@ impl FusionMag {
         self.yaw * 180.0 / core::f32::consts::PI
     }
 }
+
