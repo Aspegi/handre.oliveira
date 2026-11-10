@@ -1,4 +1,4 @@
-//! MAVLink v2 encoder with optional signing for the RNFC.
+﻿//! MAVLink v2 encoder with optional signing for the RNFC.
 //! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
 #![deny(unsafe_code)]
 
@@ -210,3 +210,6 @@ fn crc_accumulate(crc: &mut u16, byte: u8) {
     tmp ^= tmp << 4;
     *crc = (*crc >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4);
 }
+
+pub mod frame;
+

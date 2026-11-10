@@ -105,6 +105,8 @@ fn main() {
     let mut replans = 0;
     let mut last_replan_t = -10.0_f32;
     let mut mav = MavlinkSender::new("127.0.0.1:14550", 1, 1).expect("MAVLink sender");
+    let frame_socket = std::net::UdpSocket::bind("0.0.0.0:0").expect("bind frame socket");
+    let mut frame_seq: u8 = 0;
 
     // === MAVLink Signing: chave de teste (32 bytes) ===
     // Em producao, a chave e provisionada via SETUP_SIGNING numa ligacao de confianca.
@@ -369,7 +371,16 @@ fn main() {
         let effective_arrival = arrival_radius;
         if dist_to_goal < effective_arrival {
             // Chegou ao waypoint - mudar para o proximo
-            println!("    -> Waypoint {} atingido em t={:.2}s (perna {:.1}s) | pos=({:.1},{:.1})",
+            let tints: [[u8;3]; 4] = [[220,60,60],[60,220,60],[60,60,220],[220,220,220]];
+            let tint = tints[mission_idx.min(3)];
+            let img = rnfc_mavlink::frame::generate_test_image(64, 48, tint);
+            let packets = rnfc_mavlink::frame::encode_frame(&mut frame_seq, 64, 48, &img);
+            for pkt in &packets {
+                let _ = frame_socket.send_to(pkt, "127.0.0.1:14551");
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+            println!("    [MAV] frame enviado (wp={}, {} chunks, {} bytes)", mission_idx, packets.len()-1, img.len());
+                        println!("    -> Waypoint {} atingido em t={:.2}s (perna {:.1}s) | pos=({:.1},{:.1})",
                      mission_idx, t, t - leg_start_t, pos[0], pos[1]);
             mission_idx += 1;
                 direct_mode = false; // reset ao mudar de waypoint
@@ -427,6 +438,8 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
+
 
 
 
