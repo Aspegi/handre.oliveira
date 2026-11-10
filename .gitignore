@@ -7,3 +7,7 @@ Cargo.lock.bak
 *.bak*
 run_*.log
 
+
+*.bak*
+run_*.log
+
