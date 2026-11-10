@@ -1,5 +1,5 @@
 ﻿#![deny(unsafe_code)]
-use libm::{atan2f, sqrtf};
+use libm::atan2f;
 
 /// Fusão complementar gyro + magnetómetro para yaw absoluto.
 pub struct FusionMag {

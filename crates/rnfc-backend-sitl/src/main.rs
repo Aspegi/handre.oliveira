@@ -2,6 +2,8 @@
 // Autor: Andre Oliveira <handre.oliveira@gmail.com>
 // Projeto: RNFC - Resilient Navigation & Flight Control
 // Licenca: Proprietaria (ver LICENSE)
+
+#![allow(unused_variables, unused_assignments, unused_mut, dead_code)]
 // ULTRA ZENITE - Missao Composta + DAA Dinamico
 use rnfc_abstractions::{GnssFix, ImuSample};
 use rnfc_core::attitude_controller::AttitudeController;
@@ -96,7 +98,7 @@ fn main() {
     let mut stuck_timer: f32 = 0.0;
     let mut stuck_check_timer: f32 = 0.0;
     let mut direct_mode: bool = false;
-    let mut reroute_count: [u32; 3] = [0, 0, 0];
+    let _reroute_count: [u32; 3] = [0, 0, 0];
     let mut total_reroutes: u32 = 0;
         let mut t = 0.0_f32;
     let mut done = false;
