@@ -326,10 +326,13 @@ fn main() {
 
         // === Passo 9: simulacao magnetometro + fusao (diagnostico) ===
         yaw_gyro_only += (yaw_rate + GYRO_BIAS) * dt;
-        let mag_n = MAG_NORM * yaw.cos() + 0.5 * ((i as f32 * 0.7).sin());
-        let mag_e = MAG_NORM * yaw.sin() + 0.5 * ((i as f32 * 1.3).sin());
+        let attack_active = t >= 150.0 && t < 160.0;
+        let attack_offset = if attack_active { 0.5236_f32 } else { 0.0 };
+        let yaw_mag = yaw + attack_offset;
+        let mag_n = MAG_NORM * yaw_mag.cos() + 0.5 * ((i as f32 * 0.7).sin());
+        let mag_e = MAG_NORM * yaw_mag.sin() + 0.5 * ((i as f32 * 1.3).sin());
         fusion_mag.update(mag_n, mag_e, yaw_rate + GYRO_BIAS, dt);
-        if i % 2000 == 0 {
+        if i % 1000 == 0 {
             let true_d = yaw * 180.0 / core::f32::consts::PI;
             let gyro_d = yaw_gyro_only * 180.0 / core::f32::consts::PI;
             let fused_d = fusion_mag.yaw * 180.0 / core::f32::consts::PI;
@@ -339,7 +342,8 @@ fn main() {
             let mut err = fused_d - true_d;
             while err > 180.0 { err -= 360.0; }
             while err < -180.0 { err += 360.0; }
-            println!("    [FUSION] t={:.1}s | yaw_true={:.1}deg | yaw_gyro={:.1}deg (drift={:+.1}deg) | yaw_fused={:.1}deg (err={:+.1}deg)", t, true_d, gyro_d, drift, fused_d, err);
+            let tag = if attack_active { " [ATTACK]" } else { "" };
+            println!("    [FUSION]{} t={:.1}s | yaw_true={:.1}deg | yaw_gyro={:.1}deg (drift={:+.1}deg) | yaw_fused={:.1}deg (err={:+.1}deg)", tag, t, true_d, gyro_d, drift, fused_d, err);
         }
 
         let accel_max = 10.0_f32;
@@ -422,6 +426,7 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
 
 
 
