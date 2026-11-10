@@ -133,3 +133,87 @@ mod verification {
         kani::assert(sp[2].is_finite(), "yaw finite");
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn new_default_state() {
+        let g = Guidance::new();
+        assert_eq!(g.waypoints.len(), 3);
+        assert_eq!(g.current_index, 0);
+        assert_eq!(g.arrival_radius, 2.0);
+        assert_eq!(g.arrival_radius_final, 0.5);
+    }
+
+    #[test]
+    fn not_arrived_when_far() {
+        let mut g = Guidance::new();
+        let (_, arrived) = g.update([0.0, 0.0, 0.0]);
+        assert!(!arrived);
+        assert_eq!(g.current_index, 0);
+    }
+
+    #[test]
+    fn advances_at_intermediate_waypoint() {
+        let mut g = Guidance::new();
+        let (_, arrived) = g.update([100.0, 50.0, 0.0]);
+        assert!(!arrived);
+        assert_eq!(g.current_index, 1);
+    }
+
+    #[test]
+    fn arrived_only_at_final_waypoint() {
+        let mut g = Guidance::new();
+        g.update([100.0, 50.0, 0.0]);
+        g.update([150.0, -30.0, 0.0]);
+        assert_eq!(g.current_index, 2);
+        let (_, arrived) = g.update([0.0, 0.0, 0.0]);
+        assert!(arrived);
+    }
+
+    #[test]
+    fn yaw_points_to_first_waypoint() {
+        let mut g = Guidance::new();
+        let (sp, _) = g.update([0.0, 0.0, 0.0]);
+        let expected = 50.0_f32.atan2(100.0);
+        assert!(approx(sp[2], expected, 1e-3), "yaw={} expected={}", sp[2], expected);
+    }
+
+    #[test]
+    fn pitch_bounded_by_max_pitch() {
+        let mut g = Guidance::new();
+        let (sp, _) = g.update([-100000.0, -100000.0, 0.0]);
+        assert!(sp[1] <= g.max_pitch + 1e-6, "pitch={} max={}", sp[1], g.max_pitch);
+        assert!(sp[1] > 0.0, "pitch devia ser positivo, got {}", sp[1]);
+    }
+
+    #[test]
+    fn no_nan_adversarial() {
+        for n in [-1e6_f32, -1e3, 0.0, 1e3, 1e6] {
+            for e in [-1e6_f32, -1e3, 0.0, 1e3, 1e6] {
+                let mut g = Guidance::new();
+                let (sp, _) = g.update([n, e, 0.0]);
+                assert!(!sp[0].is_nan(), "roll NaN at ({},{})", n, e);
+                assert!(!sp[1].is_nan(), "pitch NaN at ({},{})", n, e);
+                assert!(!sp[2].is_nan(), "yaw NaN at ({},{})", n, e);
+            }
+        }
+    }
+
+    #[test]
+    fn current_index_monotonic() {
+        let mut g = Guidance::new();
+        assert_eq!(g.current_index, 0);
+        g.update([100.0, 50.0, 0.0]);
+        assert_eq!(g.current_index, 1);
+        g.update([150.0, -30.0, 0.0]);
+        assert_eq!(g.current_index, 2);
+        g.update([0.0, 0.0, 0.0]);
+        assert_eq!(g.current_index, 2);
+    }
+}
