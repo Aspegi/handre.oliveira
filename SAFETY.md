@@ -124,3 +124,23 @@ O RNFC segue este padrao: o FDIR corre no MCU (seguranca critica), o Kalman pode
 **Fitness plateau:** ~605 (100 + 505m). Nao crasha -> nao atinge 10000. Nao foge -> nao atinge 2000+.
 
 **Mitigacao proposta (v1.7.1):** ZombieDetector - se dist > 50m AND tempo sem progresso > 60s -> RTL.
+
+## L9 — Zombie Orbit (RESOLVIDO em v1.7.1)
+
+**Descoberto:** Adversarial MC v1.7.0 (worst dist = 505m, fitness = 605).
+
+**Resolucao:** ZombieDetector com latch permanente:
+- Trigger: dist > 50m AND no progress > 60s
+- Acao: latch RTL permanente (nao oscila)
+- Integrado no mc_adversarial e no main.rs
+
+**Prova (Adversarial MC v1.7.1):**
+- Worst dist: 505.39m -> 2.00m (-99.6%)
+- Fitness: 605.39 -> 2.00 (-99.7%)
+- OUTCOME: Timeout -> RtlSuccess
+- 5000 cenarios evoluidos, zero crashes, zero timeouts
+
+**Estado:** L9 eliminado. Envelope final:
+  - Normal: 1.98m precisao, 254s
+  - Adversarial (5000 evolved): pior caso 2.00m
+  - Zombie orbit: impossivel (ZombieDetector previne)

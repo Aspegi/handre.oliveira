@@ -471,9 +471,132 @@ mod tests_layered_defense {
             "Sem concordancia entre spoofed, voter declara TotalFailure");
     }
 }
+// ==================== ZOMBIE DETECTOR ====================
+/// Detecta "zombie orbit": drone estagnado longe do goal por muito tempo.
+/// Fecha L9 do SAFETY.md (adversarial MC encontrou timeout a 505m).
+pub struct ZombieDetector {
+    pub stuck_threshold_s: f32,
+    pub dist_threshold_m: f32,
+    pub min_progress_m: f32,
+    last_best_dist: f32,
+    last_progress_t: f32,
+    initialized: bool,
+}
 
+impl ZombieDetector {
+    pub fn new() -> Self {
+        Self {
+            stuck_threshold_s: 60.0,
+            dist_threshold_m: 50.0,
+            min_progress_m: 0.5,
+            last_best_dist: f32::INFINITY,
+            last_progress_t: 0.0,
+            initialized: false,
+        }
+    }
 
+    /// Returns true se zombie detected (stuck >60s a >50m).
+    pub fn update(&mut self, dist_to_goal: f32, t: f32) -> bool {
+        if !self.initialized {
+            self.last_best_dist = dist_to_goal;
+            self.last_progress_t = t;
+            self.initialized = true;
+            return false;
+        }
 
+        if !dist_to_goal.is_finite() || !t.is_finite() {
+            return false;
+        }
 
+        if dist_to_goal <= self.dist_threshold_m {
+            self.last_best_dist = dist_to_goal;
+            self.last_progress_t = t;
+            return false;
+        }
 
+        if dist_to_goal < self.last_best_dist - self.min_progress_m {
+            self.last_best_dist = dist_to_goal;
+            self.last_progress_t = t;
+            return false;
+        }
 
+        if dist_to_goal < self.last_best_dist {
+            self.last_best_dist = dist_to_goal;
+        }
+
+        (t - self.last_progress_t) > self.stuck_threshold_s
+    }
+}
+
+#[cfg(test)]
+mod tests_zombie {
+    use super::*;
+
+    #[test]
+    fn fresh_detector_does_not_fire_before_threshold() {
+        let mut z = ZombieDetector::new();
+        // 59s a 500m sem progresso — ainda nao dispara (threshold=60s)
+        for t in [0.0_f32, 1.0, 30.0, 59.0] {
+            assert!(!z.update(500.0, t), "nao devia disparar antes de 60s");
+        }
+        // 61s — AGORA sim, e zombie
+        assert!(z.update(500.0, 61.0), "devia disparar apos 60s a 500m");
+    }
+
+    #[test]
+    fn fresh_detector_with_progress_no_fire() {
+        let mut z = ZombieDetector::new();
+        // Drone comeca a 500m e PROGRIDE - nao e zombie
+        z.update(500.0, 0.0);
+        z.update(400.0, 10.0);
+        z.update(300.0, 20.0);
+        z.update(200.0, 30.0);
+        z.update(100.0, 40.0);
+        assert!(!z.update(60.0, 50.0), "progresso real, nao e zombie");
+    }
+
+    #[test]
+    fn progress_resets_timer() {
+        let mut z = ZombieDetector::new();
+        z.update(500.0, 0.0);
+        z.update(500.0, 30.0);
+        z.update(400.0, 40.0);
+        z.update(400.0, 90.0);
+        assert!(!z.update(400.0, 100.0), "progresso resetou timer");
+    }
+
+    #[test]
+    fn stuck_far_from_goal_triggers() {
+        let mut z = ZombieDetector::new();
+        z.update(500.0, 0.0);
+        assert!(z.update(500.0, 61.0), "devia disparar apos 60s a 500m");
+    }
+
+    #[test]
+    fn close_to_goal_never_zombie() {
+        let mut z = ZombieDetector::new();
+        z.update(30.0, 0.0);
+        assert!(!z.update(30.0, 61.0), "perto do goal nao e zombie");
+    }
+
+    #[test]
+    fn no_nan_no_panic() {
+        let mut z = ZombieDetector::new();
+        z.update(f32::NAN, 0.0);
+        z.update(f32::INFINITY, 10.0);
+        z.update(-f32::INFINITY, 20.0);
+        z.update(500.0, f32::NAN);
+    }
+
+    #[test]
+    fn slow_progress_no_zombie() {
+        let mut z = ZombieDetector::new();
+        z.update(500.0, 0.0);
+        for i in 1..=100 {
+            let dist = 500.0 - i as f32;
+            if z.update(dist, i as f32 * 10.0) {
+                panic!("progresso lento nao devia disparar");
+            }
+        }
+    }
+}

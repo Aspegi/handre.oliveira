@@ -14,7 +14,7 @@ use rnfc_core::attitude_estimator::AttitudeEstimator;
 use rnfc_core::fusion_mag::FusionMag;
 use rnfc_core::guidance::Guidance;
 use rnfc_core::NavCore;
-use rnfc_fdir::{SensorHealth, Failsafe, FailsafeAction};
+use rnfc_fdir::{SensorHealth, Failsafe, FailsafeAction, FailsafeTrigger, ZombieDetector};
 
 const DT: f32 = 0.01;
 const MAX_SPEED: f32 = 8.0;
@@ -104,6 +104,8 @@ fn run_scenario(sc: &Scenario, seed: u32) -> (Outcome, f32, f32) {
     let mut est = AttitudeEstimator::new();
     let mut health = SensorHealth::new(0.0);
     let failsafe = Failsafe::new();
+    let mut zombie_detector = ZombieDetector::new();
+    let mut zombie_latched = false;
     let mut battery_v = 12.6_f32;
     let mut roll: f32 = 0.0; let mut pitch: f32 = 0.0; let mut yaw: f32 = 0.0;
     let mut rr: f32 = 0.0; let mut pr: f32 = 0.0; let mut yr: f32 = 0.0;
@@ -160,7 +162,13 @@ fn run_scenario(sc: &Scenario, seed: u32) -> (Outcome, f32, f32) {
         // FDIR
         let health_state = health.update(mag_n);
         battery_v -= sc.battery_drain * DT;
-        let (_, fs_action) = failsafe.evaluate([pos[0], pos[1]], battery_v, health_state);
+        let dist_to_goal_now = (pos[0].powi(2) + pos[1].powi(2)).sqrt();
+        if zombie_detector.update(dist_to_goal_now, t) { zombie_latched = true; }
+        let (_, fs_action) = if zombie_latched {
+            (FailsafeTrigger::SensorCritical, FailsafeAction::ReturnToLaunch)
+        } else {
+            failsafe.evaluate([pos[0], pos[1]], battery_v, health_state)
+        };
         let fs_engage = matches!(fs_action, FailsafeAction::Hover | FailsafeAction::ReturnToLaunch | FailsafeAction::EmergencyLand);
         if fs_engage && !failsafe_active { failsafe_active = true; }
         if failsafe_active && matches!(fs_action, FailsafeAction::Continue) { failsafe_active = false; }
@@ -318,6 +326,10 @@ fn adversarial_monte_carlo_evolution() {
         println!("[AVISO] Limite descoberto: timeout a {:.1}m. Documentar em SAFETY.md", dist);
     }
 }
+
+
+
+
 
 
 
