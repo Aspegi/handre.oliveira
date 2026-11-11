@@ -1,18 +1,23 @@
+﻿# Rust
 /target
 **/*.rs.bk
 *.pdb
 Cargo.lock.bak
 .kani
 
-*.bak*
-run_*.log
-
-
-*.bak*
-run_*.log
-
-
+# Simulation artifacts
+simulations/
+*.log
+trajetoria.csv
 frame_*.ppm
 frame_*.png
-run_*.log
-*.bak*
+safety_case_demo.md
+*.bak
+*.bak.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+mavlink_signing_ts.txt
