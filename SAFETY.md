@@ -107,3 +107,20 @@ O RNFC segue este padrao: o FDIR corre no MCU (seguranca critica), o Kalman pode
 | use antes de inner attrs | v1.3.0 | `bug_07_use_apos_inner_attrs` |
 | derives duplicados | v1.4.0 | `bug_08_no_duplicate_derives` |
 | clippy::map_or invalido | v1.8 | `bug_09_no_invalid_clippy_lint` |
+
+## L9 — Zombie Orbit (Adversarial MC)
+
+**Descoberto:** Adversarial Monte Carlo (5000 cenarios evoluidos, 50 geracoes).
+
+**Cenario pior (gen 15):**
+- wind (5.16, 0.0) m/s
+- attack +16.3 graus @ t=193.8s
+- GNSS dropout 10s @ t=136.3s
+- noise 2.12x
+- OUTCOME: Timeout a 505m
+
+**Modo de falha:** drone orbita a ~500m da base, sem crashar nem fugir. FDIR previne crash, mas nao deteta "estagnacao".
+
+**Fitness plateau:** ~605 (100 + 505m). Nao crasha -> nao atinge 10000. Nao foge -> nao atinge 2000+.
+
+**Mitigacao proposta (v1.7.1):** ZombieDetector - se dist > 50m AND tempo sem progresso > 60s -> RTL.
