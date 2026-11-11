@@ -204,3 +204,38 @@ Envelope de performance: pior caso 2.00m em 5000 cenarios adversarialmente evolu
 - Two-phase training proves both policies can coexist
 - Single-LNN (138-266 params) has trade-off (hover OR recovery)
 - Two-phase (804 params) resolves the trade-off
+
+## Deployment Architecture (v3.3.0)
+
+| Crate | Host | Cortex-M4F | Where |
+|---|---|---|---|
+| rnfc-abstractions | OK | **OK** | Drone (traits) |
+| rnfc-fdir | OK | **OK** | Drone (FDIR) |
+| rnfc-lnn | OK | **OK** | Drone (LNN-FTC) |
+| rnfc-hal | OK | **OK** | Drone (HAL) |
+| rnfc-core | OK | - | Companion (nalgebra) |
+| rnfc-certis | OK | **- (std)** | Companion (safety case) |
+| rnfc-hase | OK | **- (std)** | Companion (pilot authority) |
+| rnfc-daa | OK | - | Ground station (A*) |
+
+**Rationale:** HASE/CERTIS require std (HashMap, fs::write) — they run on the
+companion computer (Linux ARM) or ground station, generating safety cases
+after each mission. The drone MCU (Cortex-M4F) runs only the real-time
+critical path: FDIR + LNN-FTC + HAL. This matches the ArduPilot/PX4 pattern.
+
+## Commercial Applications (v3.3.0)
+
+**CERTIS** (safety case compiler):
+- Market: EASA/FAA certification for BVLOS drone operations
+- Value: replaces weeks of manual consulting (€20-50k per safety case)
+- Model: SaaS or per-fleet license (€50-200k/year)
+
+**HASE** (human-authority envelope):
+- Market: EASA HAT (Human-AI Teaming) certification
+- Value: proves pilot authority preserved + safety limits felt haptically
+- Model: bundled with CERTIS
+
+**LNN-FTC** (motor loss recovery):
+- Market: fault-tolerant drones for critical missions
+- Value: 804-param LNN survives motor loss; PID crashes in 1.5s
+- Model: research-grade, publishable in IEEE Aerospace 2027
