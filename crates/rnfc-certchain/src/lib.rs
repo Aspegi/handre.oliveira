@@ -19,6 +19,7 @@ pub enum SafetyState {
     FdirActive,
     LnnRecovery,
     FailsafeTriggered,
+    QuantumNav,  // navegacao via MagNav (GPS-denied)
 }
 
 impl SafetyState {
@@ -28,6 +29,7 @@ impl SafetyState {
             SafetyState::FdirActive => 1,
             SafetyState::LnnRecovery => 2,
             SafetyState::FailsafeTriggered => 3,
+            SafetyState::QuantumNav => 4,
         }
     }
 }
@@ -657,5 +659,105 @@ mod tests_fase2 {
 
         // 4. Deve passar (4 blocos, 6 eventos, root_hash != 0)
         assert!(matches!(verdict, RegulatorVerdict::Pass { blocks: 4, .. }));
+    }
+}
+
+
+// ============ QUANTUM NAV PROOF (Fase 2 AEGIS-Swarm) ============
+/// Proof de navegacao quantica: hash das leituras MagNav + posicao estimada.
+#[derive(Clone, Copy, Debug)]
+pub struct QuantumNavProof {
+    pub reading_hash: u64,        // hash das leituras do sensor (uT)
+    pub position: [f32; 2],       // posicao estimada via MagNav
+    pub proof_hash: u64,          // hash final do proof
+}
+
+impl QuantumNavProof {
+    pub fn new(readings: &[f32], position: [f32; 2], timestamp_s: f32) -> Self {
+        let mut buf = Vec::new();
+        for r in readings {
+            buf.extend_from_slice(&r.to_le_bytes());
+        }
+        let reading_hash = fnv1a_64(&buf);
+        buf.clear();
+        buf.extend_from_slice(&reading_hash.to_le_bytes());
+        buf.extend_from_slice(&position[0].to_le_bytes());
+        buf.extend_from_slice(&position[1].to_le_bytes());
+        buf.extend_from_slice(&timestamp_s.to_le_bytes());
+        let proof_hash = fnv1a_64(&buf);
+        Self { reading_hash, position, proof_hash }
+    }
+}
+
+impl CertChain {
+    /// Append de um bloco com prova de navegacao quantica.
+    /// O event_hash e o proof_hash do QuantumNavProof.
+    pub fn append_quantum_nav(
+        &mut self,
+        timestamp_s: f32,
+        proof: &QuantumNavProof,
+    ) -> Result<u64, ChainError> {
+        self.append(timestamp_s, 1, proof.proof_hash, SafetyState::QuantumNav)
+    }
+}
+
+#[cfg(test)]
+mod tests_magnav_integration {
+    use super::*;
+
+    #[test]
+    fn quantum_proof_is_deterministic() {
+        let readings = [50.0, 50.5, 49.8];
+        let pos = [100.0, 80.0];
+        let p1 = QuantumNavProof::new(&readings, pos, 1.0);
+        let p2 = QuantumNavProof::new(&readings, pos, 1.0);
+        assert_eq!(p1.proof_hash, p2.proof_hash);
+        assert_eq!(p1.reading_hash, p2.reading_hash);
+    }
+
+    #[test]
+    fn quantum_proof_changes_with_position() {
+        let readings = [50.0];
+        let p1 = QuantumNavProof::new(&readings, [100.0, 80.0], 1.0);
+        let p2 = QuantumNavProof::new(&readings, [101.0, 80.0], 1.0);
+        assert_ne!(p1.proof_hash, p2.proof_hash);
+    }
+
+    #[test]
+    fn chain_accepts_quantum_nav_block() {
+        let mut c = CertChain::new(1, "gps_denied_mission");
+        let proof = QuantumNavProof::new(&[50.0, 50.5], [100.0, 80.0], 1.0);
+        let hash = c.append_quantum_nav(1.0, &proof).unwrap();
+        assert_ne!(hash, 0);
+        assert_eq!(c.block_count(), 1);
+        assert_eq!(c.last_state(), SafetyState::QuantumNav);
+        assert!(c.verify());
+    }
+
+    #[test]
+    fn chain_with_mixed_states_verifies() {
+        let mut c = CertChain::new(1, "mixed");
+        c.append(1.0, 2, 0xAA, SafetyState::Nominal).unwrap();
+        let proof = QuantumNavProof::new(&[50.0], [100.0, 80.0], 2.0);
+        c.append_quantum_nav(2.0, &proof).unwrap();
+        c.append(3.0, 1, 0xCC, SafetyState::LnnRecovery).unwrap();
+        assert_eq!(c.block_count(), 3);
+        assert!(c.verify());
+        assert_eq!(c.last_state(), SafetyState::LnnRecovery);
+    }
+
+    #[test]
+    fn tampered_quantum_proof_detected() {
+        let mut c = CertChain::new(1, "m");
+        let proof = QuantumNavProof::new(&[50.0], [100.0, 80.0], 1.0);
+        c.append_quantum_nav(1.0, &proof).unwrap();
+        // Tamper do event_hash
+        c.blocks[0].event_hash ^= 0xFF;
+        assert!(!c.verify(), "tamper do quantum proof nao detectado");
+    }
+
+    #[test]
+    fn quantum_nav_state_serializes() {
+        assert_eq!(SafetyState::QuantumNav.as_u8(), 4);
     }
 }
