@@ -160,3 +160,15 @@ Para testar adversarialmente, requer refactor: separar `true_pos` (fisica) de `k
 
 **Estado:** Codigo do detector em producao (rnfc-fdir), testado em isolamento.
 Integracao no SITL pendente de refactor do modelo de simulacao (v2.0).
+
+## L1 — Cross-Layer Byzantine Detection (REMOVIDO em v1.7.3)
+
+**Tentado em v1.7.2:** implementado em rnfc-fdir (6 testes, compila Cortex-M4F).
+
+**Resultado:** causou regressao no ZombieDetector (mc_adversarial passou de 2.00m a 16M km).
+Causa exacta nao identificada (possivel bug no script de append ou interaccao libm).
+
+**Decisao:** CrossLayerDetector removido de rnfc-fdir. A tentativa fica no historico git (953687d).
+
+**Estado actual:** L9 (ZombieDetector) fechado, L1 nao implementado.
+Envelope de performance: pior caso 2.00m em 5000 cenarios adversarialmente evoluidos.
