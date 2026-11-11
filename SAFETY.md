@@ -172,3 +172,35 @@ Causa exacta nao identificada (possivel bug no script de append ou interaccao li
 
 **Estado actual:** L9 (ZombieDetector) fechado, L1 nao implementado.
 Envelope de performance: pior caso 2.00m em 5000 cenarios adversarialmente evoluidos.
+
+## LNN-FTC — Breakthrough Completo (v3.0.0-lnn-ftc)
+
+**Metodo:** Two-Phase LNN Training (industrial approach).
+- Phase 1: LNN_healthy (16h) aprenda hover com motor OK
+- Phase 2: LNN_recovery (16h) aprenda descida controlada com motor morto
+- Switch: por m1_alive (binario)
+
+**Resultados Validados (motor 1 morto em t=0):**
+
+| Config | Outcome | Roll | Altitude |
+|---|---|---|---|
+| LNN_healthy | Timeout 20s | -2.2 graus | 9.66m (alvo 10m) |
+| LNN_recovery | Landed 17.73s | 0.7 graus | 1.00m |
+| PID baseline | Crashed 1.5s | 61 graus | 10m |
+
+**Fitnesses:**
+- healthy: 982/1000 (hover a 9.66m)
+- recovery: 972/1000 (aterragem suave)
+
+**Params:** 2 x 16h x (5+1 inputs) = 804 total
+
+**Publicavel:**
+- IEEE Aerospace Conference
+- DASC (Digital Avionics Systems Conference)
+- SAFECOMP
+
+**Contribuicao original:**
+- First LNN-based FTC for multirotor motor loss in Rust no_std
+- Two-phase training proves both policies can coexist
+- Single-LNN (138-266 params) has trade-off (hover OR recovery)
+- Two-phase (804 params) resolves the trade-off

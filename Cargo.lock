@@ -562,6 +562,7 @@ dependencies = [
  "rnfc-core",
  "rnfc-daa",
  "rnfc-fdir",
+ "rnfc-lnn",
  "rnfc-mavlink",
 ]
 
@@ -596,6 +597,13 @@ name = "rnfc-hal"
 version = "0.1.0"
 dependencies = [
  "rnfc-abstractions",
+]
+
+[[package]]
+name = "rnfc-lnn"
+version = "0.1.0"
+dependencies = [
+ "libm",
 ]
 
 [[package]]
