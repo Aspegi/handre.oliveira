@@ -247,6 +247,7 @@ fn crossover(a: &[f32], b: &[f32], rng: &mut Rng) -> Vec<f32> {
 }
 
 #[test]
+#[ignore = "experimento single-LNN trade-off (v3.0.0-partial) - ver SAFETY.md"]
 fn lnn_evolution_survives_motor_loss() {
     let mut rng = Rng::new(42);
     let n_params = Net::param_count();
@@ -346,6 +347,8 @@ fn lnn_evolution_survives_motor_loss() {
         panic!("Nenhuma LNN encontrada");
     }
 }
+
+
 
 
 

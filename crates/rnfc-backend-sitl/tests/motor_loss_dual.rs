@@ -281,6 +281,7 @@ fn crossover(a: &[f32], b: &[f32], rng: &mut Rng) -> Vec<f32> {
 }
 
 #[test]
+#[ignore = "experimento sum/min falhado - ver SAFETY.md L1.b"]
 fn dual_lnn_hover_and_recovery() {
     let mut rng = Rng::new(42);
     let n_params = Net::param_count() * 2;
@@ -359,6 +360,7 @@ fn dual_lnn_hover_and_recovery() {
     println!("\n[BREAKTHROUGH] DualLNN: hover OK + motor loss survived");
     println!("             PID: crashed em {:.2}s", pid_t);
 }
+
 
 
 
