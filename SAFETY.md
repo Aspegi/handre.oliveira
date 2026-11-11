@@ -144,3 +144,19 @@ O RNFC segue este padrao: o FDIR corre no MCU (seguranca critica), o Kalman pode
   - Normal: 1.98m precisao, 254s
   - Adversarial (5000 evolved): pior caso 2.00m
   - Zombie orbit: impossivel (ZombieDetector previne)
+
+## L1 — Cross-Layer Byzantine Detection (IMPLEMENTADO, NAO INTEGRADO)
+
+**Crate:** rnfc-fdir (CrossLayerDetector + 6 testes)
+
+**Funcionalidade:** Deteta ataques coordenados (IMU vs GNSS vs Mag)
+- `Coherent`: tudo consistente
+- `Inconsistent`: 1 camada diverge (recuperavel)
+- `Attacked`: 2+ camadas divergem (ataque confirmado)
+
+**Bloqueio de integracao:** O modelo SITL atual usa `true_pos = kalman_pos` (mesma variavel).
+Quando GNSS e spoofed, Kalman pos acumula +spoof por iteracao -> runaway (16M km observado).
+Para testar adversarialmente, requer refactor: separar `true_pos` (fisica) de `kalman_pos` (estimativa).
+
+**Estado:** Codigo do detector em producao (rnfc-fdir), testado em isolamento.
+Integracao no SITL pendente de refactor do modelo de simulacao (v2.0).
