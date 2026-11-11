@@ -248,6 +248,9 @@ dependencies = [
 [[package]]
 name = "rnfc-fdir"
 version = "0.1.0"
+dependencies = [
+ "libm",
+]
 
 [[package]]
 name = "rnfc-mavlink"
