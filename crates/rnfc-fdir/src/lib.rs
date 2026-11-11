@@ -1,10 +1,11 @@
-﻿#![allow(clippy::new_without_default)]
+﻿#![cfg_attr(not(test), no_std)]
+#![allow(clippy::new_without_default)]
 #![allow(clippy::needless_range_loop)]
 
-//! FDIR — Fault Detection, Isolation & Recovery.
+//! FDIR â€” Fault Detection, Isolation & Recovery.
 //!
-//! Deteta sensores avariados (stuck/outlier), isola (marca como não-fiável),
-//! e dispara ações de failsafe (RTL, hover, land).
+//! Deteta sensores avariados (stuck/outlier), isola (marca como nÃ£o-fiÃ¡vel),
+//! e dispara aÃ§Ãµes de failsafe (RTL, hover, land).
 
 /// Health state de um sensor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -16,7 +17,7 @@ pub enum Health {
     Failed,
 }
 
-/// Monitor de saúde por sensor. Deteta stuck (valor constante) e outlier (>N sigma).
+/// Monitor de saÃºde por sensor. Deteta stuck (valor constante) e outlier (>N sigma).
 pub struct SensorHealth {
     pub last_value: f32,
     pub stuck_count: u32,
@@ -65,7 +66,7 @@ impl SensorHealth {
             self.outlier_count = self.outlier_count.saturating_sub(1);
         }
 
-        // 3. EMA update (só se não outlier/stuck)
+        // 3. EMA update (sÃ³ se nÃ£o outlier/stuck)
         if !is_outlier && self.stuck_count == 0 {
             let diff = value - self.running_mean;
             self.running_mean += self.alpha * diff;
@@ -125,8 +126,8 @@ impl Failsafe {
         sensor_health: Health,
     ) -> (FailsafeTrigger, FailsafeAction) {
         // P1: Geofence
-        let dist = ((pos[0] - self.geofence_center[0]).powi(2)
-            + (pos[1] - self.geofence_center[1]).powi(2))
+        let dist = ((pos[0] - self.geofence_center[0]) * (pos[0] - self.geofence_center[0])
+            + (pos[1] - self.geofence_center[1]) * (pos[1] - self.geofence_center[1]))
         .sqrt();
         if dist > self.geofence_radius_m {
             return (FailsafeTrigger::GeofenceBreach, FailsafeAction::ReturnToLaunch);
@@ -168,7 +169,7 @@ mod tests {
     #[test]
     fn stuck_sensor_detected() {
         let mut h = SensorHealth::new(50.0);
-        // 150 iterações com o mesmo valor → deve declarar Stuck
+        // 150 iteraÃ§Ãµes com o mesmo valor â†’ deve declarar Stuck
         for i in 0..150 {
             let health = h.update(50.0);
             if i < 50 {
@@ -235,8 +236,8 @@ mod tests {
         assert_eq!(action, FailsafeAction::Continue);
     }
 }
-/// Detector de spoofing ativo no magnetómetro.
-/// Compara heading do mag vs heading do gyro: se divergem abruptamente e mantêm,
+/// Detector de spoofing ativo no magnetÃ³metro.
+/// Compara heading do mag vs heading do gyro: se divergem abruptamente e mantÃªm,
 /// e spoofing (ataque) e nao bias (drift lento).
 pub struct SpoofingDetector {
     pub err_history: [f32; 10],
@@ -393,7 +394,7 @@ mod tests_voter {
     #[test]
     fn one_outlier_isolated() {
         let v = SensorVoter::new();
-        let r = v.vote(50.0, 50.1, 80.0);  // s3 é outlier
+        let r = v.vote(50.0, 50.1, 80.0);  // s3 Ã© outlier
         assert_eq!(r.status, SensorStatus::OneDegraded);
         assert!((r.value - 50.05).abs() < 0.2, "value={} devia ser ~50", r.value);
     }
@@ -402,7 +403,7 @@ mod tests_voter {
     fn two_vs_one_uses_majority() {
         let v = SensorVoter::new();
         let r = v.vote(50.0, 70.0, 80.0);  // 1 perto de 2? Nao, todos separados
-        // Todos separados > 5% → TotalFailure OU TwoDisagree
+        // Todos separados > 5% â†’ TotalFailure OU TwoDisagree
         assert!(matches!(r.status, SensorStatus::TotalFailure | SensorStatus::OneDegraded));
     }
 
@@ -465,3 +466,5 @@ mod tests_layered_defense {
             "Sem concordancia entre spoofed, voter declara TotalFailure");
     }
 }
+
+
