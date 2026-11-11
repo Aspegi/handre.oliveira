@@ -12,6 +12,7 @@ members = [
     "crates/rnfc-hase",
     "crates/rnfc-swarm-certis",
     "crates/rnfc-certchain",
+    "crates/rnfc-magnav",
     "crates/rnfc-mavlink",
     "crates/rnfc-surveillance",
     "crates/rnfc-backend-isr",
@@ -26,6 +27,7 @@ license = "MIT OR Apache-2.0"
 panic = "abort"
 lto = true
 codegen-units = 1
+
 
 
 

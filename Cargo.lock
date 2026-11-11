@@ -626,6 +626,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rnfc-magnav"
+version = "0.1.0"
+dependencies = [
+ "libm",
+ "rnfc-abstractions",
+ "rnfc-core",
+]
+
+[[package]]
 name = "rnfc-mavlink"
 version = "0.1.0"
 dependencies = [
