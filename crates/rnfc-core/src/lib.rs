@@ -184,3 +184,6 @@ mod tests {
         assert!(dist < 1.0, "moveu {:.2}m sem GNSS", dist);
     }
 }
+
+pub mod attitude_estimator;
+

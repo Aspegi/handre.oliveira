@@ -15,6 +15,7 @@
 use rnfc_abstractions::{GnssFix, ImuSample};
 use rnfc_core::attitude_controller::AttitudeController;
 use rnfc_core::fusion_mag::FusionMag;
+use rnfc_core::attitude_estimator::AttitudeEstimator;
 use rnfc_core::NavCore;
 use rnfc_daa::trajectory::Trajectory;
 use rnfc_daa::{plan_astar, LidarSim, Obstacle, OccupancyGrid};
@@ -84,7 +85,7 @@ fn main() {
     );
 
     // === Parametros Ultra Zenite ===
-    let max_speed = 8.0_f32;
+            let max_speed = 8.0_f32;
     let max_pitch = 20.0_f32.to_radians();
     let a_lat_max = 3.0_f32;
     let lookahead_base = 4.0_f32;
@@ -99,6 +100,7 @@ fn main() {
     let mut yaw_rate: f32 = 0.0;
     let mut yaw_gyro_only: f32 = 0.0;
     let mut fusion_mag = FusionMag::new(0.0);
+    let mut attitude_est = AttitudeEstimator::new();
     let mut fusion_mag_3d = FusionMag::new(0.0);
     let mut mag_health = SensorHealth::new(0.0);
     let mut spoofing_detector = SpoofingDetector::new();
@@ -367,7 +369,7 @@ fn main() {
         let sp_pitch = (v_target / max_speed) * max_pitch;
         let setpoints = [0.0_f32, sp_pitch, sp_yaw];
 
-        let measured = [roll, pitch, fusion_mag.yaw];
+        let measured = [attitude_est.roll, attitude_est.pitch, fusion_mag.yaw];
         let cmd = controller.update(setpoints, measured, dt);
 
         let damping = 0.8_f32;
@@ -383,6 +385,22 @@ fn main() {
         }
         while yaw < -core::f32::consts::PI {
             yaw += 2.0 * core::f32::consts::PI;
+        }
+
+        // === AttitudeEstimator: update APOS fisica, ANTES do proximo measured ===
+        let noise_a = 0.05 * ((i as f32 * 0.71).sin());
+        let noise_g = 0.005 * ((i as f32 * 1.31).sin());
+        let accel_sim = [
+            -9.81 * pitch.sin() + noise_a,
+            -9.81 * roll.sin() * pitch.cos() + noise_a,
+            -9.81 * roll.cos() * pitch.cos() + noise_a,
+        ];
+        let gyro_sim = [roll_rate + noise_g, pitch_rate + noise_g, yaw_rate + noise_g];
+        attitude_est.update(accel_sim, gyro_sim, dt);
+        if i % 1000 == 0 && i > 0 {
+            let er_deg = (attitude_est.roll - roll).to_degrees();
+            let ep_deg = (attitude_est.pitch - pitch).to_degrees();
+            println!("    [EST] t={:.1}s | err_roll={:+.2}deg | err_pitch={:+.2}deg", t, er_deg, ep_deg);
         }
 
         // === Passo 9: simulacao magnetometro + fusao (diagnostico) ===
@@ -643,6 +661,10 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-[package]
+﻿[package]
 name = "rnfc-core"
 version = "0.1.0"
 edition = "2021"
@@ -9,3 +9,9 @@ license = "MIT OR Apache-2.0"
 rnfc-abstractions = { path = "../rnfc-abstractions" }
 libm = "0.2"
 nav-types = "0.5"
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "core_bench"
+harness = false

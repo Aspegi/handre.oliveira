@@ -6,4 +6,9 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 libm = "0.2"
+[dev-dependencies]
+criterion = "0.5"
 
+[[bench]]
+name = "fdir_bench"
+harness = false
