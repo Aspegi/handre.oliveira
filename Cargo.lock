@@ -607,6 +607,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rnfc-hase"
+version = "0.1.0"
+dependencies = [
+ "libm",
+ "rnfc-certis",
+]
+
+[[package]]
 name = "rnfc-lnn"
 version = "0.1.0"
 dependencies = [
