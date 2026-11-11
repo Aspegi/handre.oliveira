@@ -8,6 +8,7 @@ members = [
     "crates/rnfc-fdir",
     "crates/rnfc-hal",
     "crates/rnfc-lnn",
+    "crates/rnfc-certis",
     "crates/rnfc-mavlink",
     "crates/rnfc-surveillance",
     "crates/rnfc-backend-isr",
@@ -22,6 +23,7 @@ license = "MIT OR Apache-2.0"
 panic = "abort"
 lto = true
 codegen-units = 1
+
 
 
 

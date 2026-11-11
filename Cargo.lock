@@ -567,6 +567,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rnfc-certis"
+version = "0.1.0"
+dependencies = [
+ "rnfc-fdir",
+]
+
+[[package]]
 name = "rnfc-core"
 version = "0.1.0"
 dependencies = [
