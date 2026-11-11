@@ -388,8 +388,8 @@ fn main() {
         }
 
         // === AttitudeEstimator: update APOS fisica, ANTES do proximo measured ===
-        let noise_a = 0.05 * ((i as f32 * 0.71).sin());
-        let noise_g = 0.005 * ((i as f32 * 1.31).sin());
+        let noise_a = 0.5 * ((i as f32 * 0.71).sin()) + 0.3 * ((i as f32 * 3.17).sin());
+        let noise_g = 0.01 + 0.02 * ((i as f32 * 1.31).sin());
         let accel_sim = [
             -9.81 * pitch.sin() + noise_a,
             -9.81 * roll.sin() * pitch.cos() + noise_a,
@@ -661,6 +661,7 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
+
 
 
 
