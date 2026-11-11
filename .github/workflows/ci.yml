@@ -1,4 +1,4 @@
-# CI pipeline: fmt, clippy, test, audit, deny
+﻿# CI pipeline: fmt, clippy, test, audit, deny
 # Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
 
 name: CI
@@ -44,7 +44,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --workspace
       - run: cargo test --workspace
-
+      - name: Install Cortex-M4F target
+        run: rustup target add thumbv7em-none-eabihf
+      - name: Verify no_std (Cortex-M4F)
+        run: |
+          cargo build -p rnfc-abstractions --target thumbv7em-none-eabihf --release
+          cargo build -p rnfc-fdir --target thumbv7em-none-eabihf --release
   audit:
     name: cargo-audit (CVEs)
     runs-on: ubuntu-latest

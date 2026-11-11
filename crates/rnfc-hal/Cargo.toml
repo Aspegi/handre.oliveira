@@ -1,0 +1,8 @@
+﻿[package]
+name = "rnfc-hal"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+rnfc-abstractions = { path = "../rnfc-abstractions" }

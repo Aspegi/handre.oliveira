@@ -253,6 +253,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rnfc-hal"
+version = "0.1.0"
+dependencies = [
+ "rnfc-abstractions",
+]
+
+[[package]]
 name = "rnfc-mavlink"
 version = "0.1.0"
 dependencies = [
