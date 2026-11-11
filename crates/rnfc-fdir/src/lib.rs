@@ -63,7 +63,7 @@ impl SensorHealth {
 
         // 2. Outlier detector
         let deviation = (value - self.running_mean).abs();
-        let sigma =sqrtf((self.running_var)).max(1e-6);
+        let sigma = sqrtf(self.running_var).max(1e-6);
         let is_outlier = deviation > self.outlier_sigma * sigma;
         if is_outlier {
             self.outlier_count += 1;
@@ -131,8 +131,9 @@ impl Failsafe {
         sensor_health: Health,
     ) -> (FailsafeTrigger, FailsafeAction) {
         // P1: Geofence
-        let dist =sqrtf((((pos[0] - self.geofence_center[0]) * (pos[0] - self.geofence_center[0])
-            + (pos[1] - self.geofence_center[1]) * (pos[1] - self.geofence_center[1]))));
+        let dx = pos[0] - self.geofence_center[0];
+        let dy = pos[1] - self.geofence_center[1];
+        let dist = sqrtf(dx * dx + dy * dy);
         if dist > self.geofence_radius_m {
             return (FailsafeTrigger::GeofenceBreach, FailsafeAction::ReturnToLaunch);
         }
@@ -470,6 +471,7 @@ mod tests_layered_defense {
             "Sem concordancia entre spoofed, voter declara TotalFailure");
     }
 }
+
 
 
 

@@ -86,3 +86,24 @@ O RNFC segue este padrao: o FDIR corre no MCU (seguranca critica), o Kalman pode
 - Opcao A: correr o Kalman num companion computer (padrao ArduPilot)
 - Opcao B: substituir por INS dedicado (hardware sensor fusion)
 - Opcao C: reimplementar Kalman com arrays fixos (sem nalgebra) — trabalho de v2.0
+
+## Limites Adicionais (actualizado v1.6.1)
+
+| ID | Limitacao | Mitigacao |
+|---|---|---|
+| L7 | Accel convention: `az=-9.81` em nivel (specific force NED). Roll usa `atan2(-ay,-az)`. | Testes `rolled_right_detects_roll`, `pitched_forward_detects_pitch` blindam a convencao |
+| L8 | AttitudeEstimator testado com ruido sintetico (accel 0.5, gyro 0.01+0.02 sin). Sensores reais variam. | Calibrar alpha (0.98) ao hardware. Property tests + fuzz blindam a matematica |
+
+## Regressao - Bugs Historicos Blindados
+
+| Bug | Versao | Teste |
+|---|---|---|
+| deadband_radius (drone a 15.24m) | v0.4.0 | `bug_01_no_deadband_radius` |
+| direct_mode 8.0 (arrival prematuro) | v0.4.0 | `bug_02_no_direct_mode_8m` |
+| min_speed 3.0 (overshoot 25m) | v0.4.0 | `bug_03_no_min_speed_3_perto_goal` |
+| powi em no_std | v1.3.0 | `bug_04_no_powi_in_fdir` |
+| sqrt sem libm | v1.3.0 | `bug_05_no_raw_sqrt_in_fdir` |
+| plan_astar loop sem guard | v0.9.7 | `bug_06_no_unbounded_reroute_loop` |
+| use antes de inner attrs | v1.3.0 | `bug_07_use_apos_inner_attrs` |
+| derives duplicados | v1.4.0 | `bug_08_no_duplicate_derives` |
+| clippy::map_or invalido | v1.8 | `bug_09_no_invalid_clippy_lint` |
