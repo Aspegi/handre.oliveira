@@ -45,7 +45,6 @@ impl AttitudeEstimator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    const PI: f32 = core::f32::consts::PI;
 
     #[test]
     fn level_estimates_zero() {
@@ -120,4 +119,5 @@ mod tests {
         assert!(e.roll.abs() < 0.05, "nao convergiu: roll={}", e.roll);
     }
 }
+
 

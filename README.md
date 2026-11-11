@@ -6,7 +6,7 @@ Piloto automatico em Rust no_std com navegacao resiliente, DAA dinamico e visao 
 
 | Metrica | Valor |
 |---|---|
-| Testes | **87** (7 camadas de verificacao) |
+| Testes | **83 (+2 ignored)** (7 camadas de verificacao) |
 | Precisao normal | 1.98m |
 | Precisao adversarial (5000 evolved) | **2.00m** |
 | Crashes em 6000 MC | **0** |
@@ -26,5 +26,6 @@ cargo test -p rnfc-backend-sitl --test mission --release -- --nocapture
 ## Tags SITL
 
 v0.4.0 a v0.8.0-sitl-complete
+
 
 

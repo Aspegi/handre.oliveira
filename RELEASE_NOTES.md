@@ -9,7 +9,7 @@ e envelope de performance verificado em 7 camadas de testes.
 
 | Metrica | Valor |
 |---|---|
-| **Testes totais** | **87** |
+| **Testes totais** | **83 (+2 ignored = 85 total)** |
 | **Precisao normal** | 1.98m |
 | **Precisao adversarial (5000 evolved)** | **2.00m** |
 | **Crashes (6000 Monte Carlo)** | **0** |
@@ -31,7 +31,7 @@ e envelope de performance verificado em 7 camadas de testes.
 | 5 | Fuzz (80.000 inputs) | 8 |
 | 6 | Adversarial MC (evolutivo) | 1 |
 | 7 | Regression (9 bugs blindados) | 9 |
-| | **Total** | **87** |
+| | **Total** | **83 (+2 ignored = 85 total)** |
 
 ## FDIR — 5 Camadas Activas
 
@@ -105,5 +105,5 @@ Failsafe         -> geofence/battery -> RTL/Hover/Land
 ## Conclusao
 
 O RNFC nao e um drone que voa. E um sistema que PROVA que voa dentro
-de um envelope conhecido, documenta onde falha, e tem 87 testes a blindar
+de um envelope conhecido, documenta onde falha, e tem 83 testes (+2 ignored) a blindar
 as correccoes. E um exemplo funcional de engenharia safety-critical em Rust.
