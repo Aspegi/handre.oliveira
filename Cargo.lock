@@ -584,6 +584,9 @@ dependencies = [
 [[package]]
 name = "rnfc-certchain"
 version = "0.1.0"
+dependencies = [
+ "sha2",
+]
 
 [[package]]
 name = "rnfc-certis"

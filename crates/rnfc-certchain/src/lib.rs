@@ -36,12 +36,13 @@ impl SafetyState {
 
 // ============ HASH ============
 fn fnv1a_64(data: &[u8]) -> u64 {
-    let mut h: u64 = 0xcbf29ce484222325;
-    for &b in data {
-        h ^= b as u64;
-        h = h.wrapping_mul(0x100000001b3);
-    }
-    h
+    // SHA-256 truncated to 64 bits (cryptographic replacement for FNV-1a).
+    // The function name is kept for API compatibility; the hash is now SHA-256.
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(data);
+    let d = h.finalize();
+    u64::from_le_bytes([d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]])
 }
 
 // ============ BLOCO ============
