@@ -657,6 +657,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rnfc-mavsign"
+version = "0.1.0"
+dependencies = [
+ "sha2",
+]
+
+[[package]]
 name = "rnfc-omni"
 version = "0.1.0"
 
