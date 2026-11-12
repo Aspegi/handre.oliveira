@@ -25,3 +25,9 @@ mavlink_signing_ts.txt
 kani-bundle.tar.gz
 *.tar.gz
 safety_case_with_counterfactuals.md
+
+# SCC generated artifacts
+requirements.safety
+generated_tests.rs
+safety_case_gsn.md
+scc_demo_output.txt

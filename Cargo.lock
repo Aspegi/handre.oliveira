@@ -653,6 +653,13 @@ name = "rnfc-omni"
 version = "0.1.0"
 
 [[package]]
+name = "rnfc-scc"
+version = "0.1.0"
+dependencies = [
+ "rnfc-certchain",
+]
+
+[[package]]
 name = "rnfc-surveillance"
 version = "0.1.0"
 
