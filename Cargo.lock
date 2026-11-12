@@ -544,6 +544,14 @@ name = "rnfc-abstractions"
 version = "0.1.0"
 
 [[package]]
+name = "rnfc-anchor"
+version = "0.1.0"
+dependencies = [
+ "rnfc-certchain",
+ "sha2",
+]
+
+[[package]]
 name = "rnfc-backend-isr"
 version = "0.1.0"
 dependencies = [
