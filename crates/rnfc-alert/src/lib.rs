@@ -1,4 +1,4 @@
-﻿//! Alert — unified alert system for safety envelope violations.
+//! Alert — unified alert system for safety envelope violations.
 //!
 //! Consumes events (altitude, speed, battery, obstacles) and emits:
 //! 1. MAVLink STATUSTEXT (msgid 253) for the ground station
@@ -15,7 +15,12 @@
 use rnfc_certchain::{CertChain, SafetyState};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum AlertLevel { Info, Warning, Critical, Emergency }
+pub enum AlertLevel {
+    Info,
+    Warning,
+    Critical,
+    Emergency,
+}
 
 #[derive(Clone, Debug)]
 pub struct Alert {
@@ -56,26 +61,44 @@ pub struct AlertManager {
 
 impl AlertManager {
     pub fn new(min_alt_m: f32, max_alt_m: f32) -> Self {
-        Self { min_alt_m, max_alt_m, emitted: 0 }
+        Self {
+            min_alt_m,
+            max_alt_m,
+            emitted: 0,
+        }
     }
 
     /// Check altitude against envelope. Returns Some(Alert) if a threshold crossed.
     pub fn check_altitude(&mut self, alt_m: f32, t_s: f32) -> Option<Alert> {
         let (level, msg) = if alt_m > self.max_alt_m * 1.1 {
-            (AlertLevel::Emergency, format!("ALT {:.1}m > {:.0}m (+10%)", alt_m, self.max_alt_m))
+            (
+                AlertLevel::Emergency,
+                format!("ALT {:.1}m > {:.0}m (+10%)", alt_m, self.max_alt_m),
+            )
         } else if alt_m > self.max_alt_m {
-            (AlertLevel::Critical, format!("ALT {:.1}m > {:.0}m", alt_m, self.max_alt_m))
+            (
+                AlertLevel::Critical,
+                format!("ALT {:.1}m > {:.0}m", alt_m, self.max_alt_m),
+            )
         } else if alt_m > self.max_alt_m * 0.9 {
             (AlertLevel::Warning, format!("ALT {:.1}m near max", alt_m))
         } else if alt_m < self.min_alt_m {
-            (AlertLevel::Critical, format!("ALT {:.1}m < {:.0}m", alt_m, self.min_alt_m))
+            (
+                AlertLevel::Critical,
+                format!("ALT {:.1}m < {:.0}m", alt_m, self.min_alt_m),
+            )
         } else if alt_m < self.min_alt_m * 1.5 {
             (AlertLevel::Warning, format!("ALT {:.1}m near min", alt_m))
         } else {
             return None;
         };
         self.emitted += 1;
-        Some(Alert { level, code: "ALT", message: msg, timestamp_s: t_s })
+        Some(Alert {
+            level,
+            code: "ALT",
+            message: msg,
+            timestamp_s: t_s,
+        })
     }
 
     pub fn record_in_chain(&self, chain: &mut CertChain, alert: &Alert) -> u64 {
@@ -84,7 +107,10 @@ impl AlertManager {
         buf.extend_from_slice(&alert.timestamp_s.to_le_bytes());
         buf.push(alert.level as u8);
         let mut h: u64 = 0xcbf29ce484222325;
-        for &b in &buf { h ^= b as u64; h = h.wrapping_mul(0x100000001b3); }
+        for &b in &buf {
+            h ^= b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
         let _ = chain.append(alert.timestamp_s, 1, h, SafetyState::FailsafeTriggered);
         h
     }
@@ -131,8 +157,12 @@ mod tests {
 
     #[test]
     fn statustext_has_severity_and_text() {
-        let a = Alert { level: AlertLevel::Critical, code: "ALT",
-            message: "125m > 120m".into(), timestamp_s: 1.0 };
+        let a = Alert {
+            level: AlertLevel::Critical,
+            code: "ALT",
+            message: "125m > 120m".into(),
+            timestamp_s: 1.0,
+        };
         let st = a.to_statustext();
         assert_eq!(st[0], 2); // CRITICAL
         let text = String::from_utf8_lossy(&st[1..]);
@@ -142,15 +172,23 @@ mod tests {
 
     #[test]
     fn emergency_triggers_haptic() {
-        let a = Alert { level: AlertLevel::Emergency, code: "ALT",
-            message: "x".into(), timestamp_s: 0.0 };
+        let a = Alert {
+            level: AlertLevel::Emergency,
+            code: "ALT",
+            message: "x".into(),
+            timestamp_s: 0.0,
+        };
         assert!(a.to_haptic_strong());
     }
 
     #[test]
     fn warning_does_not_trigger_haptic() {
-        let a = Alert { level: AlertLevel::Warning, code: "ALT",
-            message: "x".into(), timestamp_s: 0.0 };
+        let a = Alert {
+            level: AlertLevel::Warning,
+            code: "ALT",
+            message: "x".into(),
+            timestamp_s: 0.0,
+        };
         assert!(!a.to_haptic_strong());
     }
 

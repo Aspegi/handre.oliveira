@@ -1,4 +1,4 @@
-﻿#![allow(clippy::needless_range_loop)]
+#![allow(clippy::needless_range_loop)]
 #![allow(clippy::new_without_default)]
 //! MagNav — Quantum Magnetometry for GPS-Denied Navigation.
 //!
@@ -23,11 +23,11 @@ use rnfc_abstractions::GnssFix;
 // ============ MAGNETIC ANOMALY MAP ============
 /// 2D pre-surveyed magnetic anomaly map (uT field strength per cell).
 pub struct MagneticAnomalyMap {
-    pub origin: [f32; 2],   // (north, east) of cell (0, 0)
-    pub resolution: f32,    // metres per cell
+    pub origin: [f32; 2], // (north, east) of cell (0, 0)
+    pub resolution: f32,  // metres per cell
     pub width: usize,
     pub height: usize,
-    pub cells: Vec<f32>,    // row-major: cells[i * height + j]
+    pub cells: Vec<f32>, // row-major: cells[i * height + j]
 }
 
 impl MagneticAnomalyMap {
@@ -54,7 +54,13 @@ impl MagneticAnomalyMap {
                 cells.push(b);
             }
         }
-        Self { origin: [0.0, 0.0], resolution, width, height, cells }
+        Self {
+            origin: [0.0, 0.0],
+            resolution,
+            width,
+            height,
+            cells,
+        }
     }
 
     /// Looks up the field value at a position (metres). Returns None if out of bounds.
@@ -73,7 +79,7 @@ impl MagneticAnomalyMap {
 /// Simulates a quantum magnetometer (SERF, NV-centre, etc.) with realistic noise.
 pub struct QuantumMagSensor {
     pub map: MagneticAnomalyMap,
-    pub noise_ut: f32,  // 1-sigma noise in microtesla
+    pub noise_ut: f32, // 1-sigma noise in microtesla
 }
 
 impl QuantumMagSensor {
@@ -97,7 +103,10 @@ pub struct MagNavEstimator {
 
 impl MagNavEstimator {
     pub fn new() -> Self {
-        Self { search_radius_m: 15.0, search_step_m: 1.0 }
+        Self {
+            search_radius_m: 15.0,
+            search_step_m: 1.0,
+        }
     }
 
     /// Finds the position within ±search_radius of prior whose map value
@@ -185,8 +194,12 @@ mod tests {
         for seed in 0..100 {
             let noise = ((seed as f32) / 100.0 - 0.5) * 2.0 * sensor.noise_ut;
             let m = sensor.measure(true_pos, noise);
-            assert!((m - truth).abs() <= sensor.noise_ut + 1e-6,
-                "noise too large: measured={}, truth={}", m, truth);
+            assert!(
+                (m - truth).abs() <= sensor.noise_ut + 1e-6,
+                "noise too large: measured={}, truth={}",
+                m,
+                truth
+            );
         }
     }
 
@@ -249,13 +262,11 @@ mod tests {
         let mut true_pos = [100.0_f32, 80.0_f32];
 
         for i in 0..100 {
-            true_pos[1] += 5.0 * 0.01;  // fly east at 5 m/s
+            true_pos[1] += 5.0 * 0.01; // fly east at 5 m/s
 
             let prior = nav.position();
             let noise = ((i % 10) as f32 / 10.0 - 0.5) * 2.0 * sensor.noise_ut;
-            let fix = est.estimate_as_fix(
-                &sensor, true_pos, [prior[0], prior[1]], noise,
-            );
+            let fix = est.estimate_as_fix(&sensor, true_pos, [prior[0], prior[1]], noise);
 
             let imu = ImuSample {
                 accel: [0.0, 0.0, -9.81],
@@ -267,8 +278,13 @@ mod tests {
 
         let p = nav.position();
         let err = ((p[0] - true_pos[0]).powi(2) + (p[1] - true_pos[1]).powi(2)).sqrt();
-        assert!(err < 10.0,
+        assert!(
+            err < 10.0,
             "GPS-denied navigation error: {:.2}m (true={:?}, est=[{:.2},{:.2}])",
-            err, true_pos, p[0], p[1]);
+            err,
+            true_pos,
+            p[0],
+            p[1]
+        );
     }
 }

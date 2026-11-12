@@ -1,4 +1,4 @@
-﻿//! Motor Loss Baseline — Prova que o PID falha catastroficamente.
+//! Motor Loss Baseline — Prova que o PID falha catastroficamente.
 //!
 //! Este teste documenta o GAP que a LNN-FTC vai fechar.
 //!
@@ -11,13 +11,13 @@
 use rnfc_core::attitude_controller::AttitudeController;
 
 const DT: f32 = 0.01;
-const HOVER_THRUST_PER_MOTOR: f32 = 9.81 / 4.0;  // 2.45 N
-const MAX_THRUST_PER_MOTOR: f32 = 5.0;           // ~2x hover
-const ARM_LENGTH: f32 = 0.2;                     // m
-const INERTIA_XX: f32 = 0.05;                    // kg·m²
-const MASS: f32 = 1.0;                           // kg
-const DAMPING: f32 = 0.8;                        // matches SITL
-const CRASH_ROLL_RAD: f32 = 1.05;                // 60 deg
+const HOVER_THRUST_PER_MOTOR: f32 = 9.81 / 4.0; // 2.45 N
+const MAX_THRUST_PER_MOTOR: f32 = 5.0; // ~2x hover
+const ARM_LENGTH: f32 = 0.2; // m
+const INERTIA_XX: f32 = 0.05; // kg·m²
+const MASS: f32 = 1.0; // kg
+const DAMPING: f32 = 0.8; // matches SITL
+const CRASH_ROLL_RAD: f32 = 1.05; // 60 deg
 const CRASH_ALT_M: f32 = 1.0;
 
 #[derive(Clone, Copy, Default)]
@@ -39,7 +39,10 @@ fn motor_mixing(thrust: f32, roll_cmd: f32) -> [f32; 4] {
 }
 
 fn simulate(fail_motor1_at: Option<f32>, verbose: bool) -> (State, bool, f32) {
-    let mut state = State { altitude: 10.0, ..Default::default() };
+    let mut state = State {
+        altitude: 10.0,
+        ..Default::default()
+    };
     let mut ctrl = AttitudeController::new();
 
     for i in 0..1000 {

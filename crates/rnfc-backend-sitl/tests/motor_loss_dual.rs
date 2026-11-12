@@ -1,4 +1,4 @@
-﻿//! Dual-LNN Fault-Tolerant Control
+//! Dual-LNN Fault-Tolerant Control
 //!
 //! Pattern industrial: duas redes especializadas com switch.
 //! - LNN_healthy: hover quando motor OK
@@ -40,7 +40,10 @@ struct DualLNN {
 
 impl DualLNN {
     fn zeros() -> Self {
-        Self { healthy: Net::zeros(), recovery: Net::zeros() }
+        Self {
+            healthy: Net::zeros(),
+            recovery: Net::zeros(),
+        }
     }
 
     fn reset(&mut self) {
@@ -99,7 +102,10 @@ fn motor_mixing(thrust: f32, roll_diff: f32) -> [f32; 4] {
 
 fn simulate_dual(net: &mut DualLNN, fail_m1_at: Option<f32>) -> (State, Outcome, f32) {
     net.reset();
-    let mut state = State { altitude: 10.0, ..Default::default() };
+    let mut state = State {
+        altitude: 10.0,
+        ..Default::default()
+    };
 
     for i in 0..MAX_STEPS {
         let t = i as f32 * DT;
@@ -123,7 +129,9 @@ fn simulate_dual(net: &mut DualLNN, fail_m1_at: Option<f32>) -> (State, Outcome,
 
         let [mut m1, m2, m3, m4] = motor_mixing(thrust, roll_diff);
         if let Some(tf) = fail_m1_at {
-            if t >= tf { m1 = 0.0; }
+            if t >= tf {
+                m1 = 0.0;
+            }
         }
 
         let total_thrust = m1 + m2 + m3 + m4;
@@ -137,7 +145,10 @@ fn simulate_dual(net: &mut DualLNN, fail_m1_at: Option<f32>) -> (State, Outcome,
         let a_z = (vert_thrust - MASS * 9.81) / MASS;
         state.vertical_vel += a_z * DT;
         state.altitude += state.vertical_vel * DT;
-        if state.altitude < 0.0 { state.altitude = 0.0; state.vertical_vel = 0.0; }
+        if state.altitude < 0.0 {
+            state.altitude = 0.0;
+            state.vertical_vel = 0.0;
+        }
 
         if state.roll.abs() > CRASH_ROLL {
             return (state, Outcome::Crashed, t);
@@ -154,7 +165,10 @@ fn simulate_dual(net: &mut DualLNN, fail_m1_at: Option<f32>) -> (State, Outcome,
 }
 
 fn simulate_pid(fail_m1_at: Option<f32>) -> (State, Outcome, f32) {
-    let mut state = State { altitude: 10.0, ..Default::default() };
+    let mut state = State {
+        altitude: 10.0,
+        ..Default::default()
+    };
     let mut ctrl = AttitudeController::new();
 
     for i in 0..MAX_STEPS {
@@ -164,7 +178,9 @@ fn simulate_pid(fail_m1_at: Option<f32>) -> (State, Outcome, f32) {
 
         let [mut m1, m2, m3, m4] = motor_mixing(HOVER_THRUST, roll_diff);
         if let Some(tf) = fail_m1_at {
-            if t >= tf { m1 = 0.0; }
+            if t >= tf {
+                m1 = 0.0;
+            }
         }
 
         let total_thrust = m1 + m2 + m3 + m4;
@@ -177,7 +193,10 @@ fn simulate_pid(fail_m1_at: Option<f32>) -> (State, Outcome, f32) {
         let a_z = (vert_thrust - MASS * 9.81) / MASS;
         state.vertical_vel += a_z * DT;
         state.altitude += state.vertical_vel * DT;
-        if state.altitude < 0.0 { state.altitude = 0.0; state.vertical_vel = 0.0; }
+        if state.altitude < 0.0 {
+            state.altitude = 0.0;
+            state.vertical_vel = 0.0;
+        }
 
         if state.roll.abs() > CRASH_ROLL {
             return (state, Outcome::Crashed, t);
@@ -201,13 +220,11 @@ fn fitness(net: &mut DualLNN) -> f32 {
         && state_h.roll.abs() < 0.5;
 
     let healthy_score = if hover_ok {
-        1000.0
-            - (state_h.altitude - 10.0).abs() * 50.0
-            - state_h.roll.abs() * 200.0
+        1000.0 - (state_h.altitude - 10.0).abs() * 50.0 - state_h.roll.abs() * 200.0
     } else {
         match outcome_h {
-            Outcome::Crashed => t_h * 0.1,   // GRADIENTE: mais tempo = melhor
-            Outcome::Landed => -500.0,        // CHEAT: aterrou sem falha
+            Outcome::Crashed => t_h * 0.1, // GRADIENTE: mais tempo = melhor
+            Outcome::Landed => -500.0,     // CHEAT: aterrou sem falha
             _ => 0.0,
         }
     };
@@ -218,11 +235,11 @@ fn fitness(net: &mut DualLNN) -> f32 {
         Outcome::Landed if t_f > 2.0 => {
             let roll_bonus = (1.0 - state_f.roll.abs() / CRASH_ROLL).max(0.0) * 300.0;
             let vel_bonus = (1.0 - state_f.vertical_vel.abs() / 5.0).max(0.0) * 200.0;
-            500.0 + roll_bonus + vel_bonus  // max 1000 (match healthy)
+            500.0 + roll_bonus + vel_bonus // max 1000 (match healthy)
         }
         Outcome::Landed => t_f,
         Outcome::Timeout => 200.0,
-        Outcome::Crashed => t_f * 0.1,  // GRADIENTE: mais tempo = melhor
+        Outcome::Crashed => t_f * 0.1, // GRADIENTE: mais tempo = melhor
     };
 
     // MIN em vez de SUM: forca AMBAS as redes a serem boas.
@@ -231,14 +248,22 @@ fn fitness(net: &mut DualLNN) -> f32 {
     healthy_score.min(recovery_score)
 }
 
-struct Rng { state: u32 }
+struct Rng {
+    state: u32,
+}
 impl Rng {
-    fn new(seed: u32) -> Self { Self { state: seed.wrapping_add(1) } }
+    fn new(seed: u32) -> Self {
+        Self {
+            state: seed.wrapping_add(1),
+        }
+    }
     fn next(&mut self) -> u32 {
         self.state = self.state.wrapping_mul(1664525).wrapping_add(1013904223);
         self.state
     }
-    fn f32(&mut self) -> f32 { (self.next() >> 8) as f32 / 16777216.0 }
+    fn f32(&mut self) -> f32 {
+        (self.next() >> 8) as f32 / 16777216.0
+    }
     fn normal(&mut self) -> f32 {
         let u1 = self.f32().max(1e-6);
         let u2 = self.f32();
@@ -288,15 +313,14 @@ fn dual_lnn_hover_and_recovery() {
     println!("DualLNN: 2 x (5 -> 16 -> 2) = {} params total", n_params);
     println!("Populacao: {}, Geracoes: {}\n", POP_SIZE, GENERATIONS);
 
-    let mut population: Vec<DualLNN> = (0..POP_SIZE)
-        .map(|_| random_dual(&mut rng))
-        .collect();
+    let mut population: Vec<DualLNN> = (0..POP_SIZE).map(|_| random_dual(&mut rng)).collect();
 
     let mut best_ever = f32::NEG_INFINITY;
     let mut best_net: Option<DualLNN> = None;
 
     for gen in 0..GENERATIONS {
-        let mut scored: Vec<(usize, f32)> = population.iter_mut()
+        let mut scored: Vec<(usize, f32)> = population
+            .iter_mut()
             .enumerate()
             .map(|(i, net)| (i, fitness(net)))
             .collect();
@@ -337,32 +361,49 @@ fn dual_lnn_hover_and_recovery() {
 
     let mut best = best_net.expect("sem best");
     let (state_h, outcome_h, t_h) = simulate_dual(&mut best, None);
-    println!("HEALTHY:  {:?} em {:.2}s (roll={:.1}° alt={:.2}m)",
-        outcome_h, t_h, state_h.roll.to_degrees(), state_h.altitude);
+    println!(
+        "HEALTHY:  {:?} em {:.2}s (roll={:.1}° alt={:.2}m)",
+        outcome_h,
+        t_h,
+        state_h.roll.to_degrees(),
+        state_h.altitude
+    );
 
     let (state_f, outcome_f, t_f) = simulate_dual(&mut best, Some(1.0));
-    println!("MOTOR LOSS: {:?} em {:.2}s (roll={:.1}° alt={:.2}m)",
-        outcome_f, t_f, state_f.roll.to_degrees(), state_f.altitude);
+    println!(
+        "MOTOR LOSS: {:?} em {:.2}s (roll={:.1}° alt={:.2}m)",
+        outcome_f,
+        t_f,
+        state_f.roll.to_degrees(),
+        state_f.altitude
+    );
 
     let (_, pid_outcome, pid_t) = simulate_pid(Some(1.0));
     println!("PID baseline: {:?} em {:.2}s", pid_outcome, pid_t);
 
     // Asserts
-    assert!(matches!(outcome_h, Outcome::Timeout),
-        "Healthy: esperado Timeout (hover), obtido {:?}", outcome_h);
-    assert!((state_h.altitude - 10.0).abs() < 3.0,
-        "Healthy: altitude fora de range: {:.2}m", state_h.altitude);
-    assert!(matches!(outcome_f, Outcome::Landed),
-        "Motor loss: esperado Landed, obtido {:?} em {:.2}s", outcome_f, t_f);
-    assert!(matches!(pid_outcome, Outcome::Crashed),
-        "PID: esperado Crashed, obtido {:?}", pid_outcome);
+    assert!(
+        matches!(outcome_h, Outcome::Timeout),
+        "Healthy: esperado Timeout (hover), obtido {:?}",
+        outcome_h
+    );
+    assert!(
+        (state_h.altitude - 10.0).abs() < 3.0,
+        "Healthy: altitude fora de range: {:.2}m",
+        state_h.altitude
+    );
+    assert!(
+        matches!(outcome_f, Outcome::Landed),
+        "Motor loss: esperado Landed, obtido {:?} em {:.2}s",
+        outcome_f,
+        t_f
+    );
+    assert!(
+        matches!(pid_outcome, Outcome::Crashed),
+        "PID: esperado Crashed, obtido {:?}",
+        pid_outcome
+    );
 
     println!("\n[BREAKTHROUGH] DualLNN: hover OK + motor loss survived");
     println!("             PID: crashed em {:.2}s", pid_t);
 }
-
-
-
-
-
-

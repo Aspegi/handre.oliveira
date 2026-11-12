@@ -1,4 +1,4 @@
-﻿#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_std)]
 //! Anchor — external anchoring of the CertChain head.
 //!
 //! A hash chain is only tamper-evident against naive edits. An attacker
@@ -21,11 +21,17 @@ pub const KEY_LEN: usize = 32;
 pub const ANCHOR_HASH_LEN: usize = 32;
 
 #[derive(Clone)]
-pub struct AnchorKey { bytes: [u8; KEY_LEN] }
+pub struct AnchorKey {
+    bytes: [u8; KEY_LEN],
+}
 
 impl AnchorKey {
-    pub fn new(bytes: [u8; KEY_LEN]) -> Self { Self { bytes } }
-    pub fn as_bytes(&self) -> &[u8; KEY_LEN] { &self.bytes }
+    pub fn new(bytes: [u8; KEY_LEN]) -> Self {
+        Self { bytes }
+    }
+    pub fn as_bytes(&self) -> &[u8; KEY_LEN] {
+        &self.bytes
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -49,7 +55,9 @@ pub fn anchor_chain(chain: &CertChain, key: &AnchorKey, timestamp_us: u64) -> An
     let block_count = chain.block_count();
     let chain_hash_at_block = if block_count > 0 {
         chain.blocks[block_count - 1].hash
-    } else { 0 };
+    } else {
+        0
+    };
 
     let mut h = Sha256::new();
     h.update(&(block_count as u64).to_le_bytes());
@@ -60,7 +68,12 @@ pub fn anchor_chain(chain: &CertChain, key: &AnchorKey, timestamp_us: u64) -> An
     let mut anchor_hash = [0u8; ANCHOR_HASH_LEN];
     anchor_hash.copy_from_slice(&digest);
 
-    Anchor { block_count, chain_hash_at_block, timestamp_us, anchor_hash }
+    Anchor {
+        block_count,
+        chain_hash_at_block,
+        timestamp_us,
+        anchor_hash,
+    }
 }
 
 /// Verify an anchor against the current chain.
@@ -98,10 +111,20 @@ pub struct AnchorStore {
 }
 
 impl AnchorStore {
-    pub fn new() -> Self { Self { anchors: Vec::new() } }
-    pub fn store(&mut self, a: Anchor) { self.anchors.push(a); }
-    pub fn latest(&self) -> Option<&Anchor> { self.anchors.last() }
-    pub fn count(&self) -> usize { self.anchors.len() }
+    pub fn new() -> Self {
+        Self {
+            anchors: Vec::new(),
+        }
+    }
+    pub fn store(&mut self, a: Anchor) {
+        self.anchors.push(a);
+    }
+    pub fn latest(&self) -> Option<&Anchor> {
+        self.anchors.last()
+    }
+    pub fn count(&self) -> usize {
+        self.anchors.len()
+    }
 }
 
 #[cfg(test)]
@@ -109,12 +132,15 @@ mod tests {
     use super::*;
     use rnfc_certchain::SafetyState;
 
-    fn key() -> AnchorKey { AnchorKey::new([0x42; KEY_LEN]) }
+    fn key() -> AnchorKey {
+        AnchorKey::new([0x42; KEY_LEN])
+    }
 
     fn chain_n(n: usize) -> CertChain {
         let mut c = CertChain::new(1, "anchor_test");
         for i in 0..n {
-            c.append(i as f32, 1, 0xA0 + i as u64, SafetyState::Nominal).unwrap();
+            c.append(i as f32, 1, 0xA0 + i as u64, SafetyState::Nominal)
+                .unwrap();
         }
         c
     }
@@ -164,7 +190,10 @@ mod tests {
         let c = chain_n(3);
         let a = anchor_chain(&c, &key(), 1000);
         let short = chain_n(1);
-        assert_eq!(verify_anchor(&short, &a, &key()), VerifyResult::ChainShortened);
+        assert_eq!(
+            verify_anchor(&short, &a, &key()),
+            VerifyResult::ChainShortened
+        );
     }
 
     #[test]
@@ -176,7 +205,10 @@ mod tests {
         forged.append(1.0, 1, 0xDEAD, SafetyState::Nominal).unwrap();
         forged.append(2.0, 1, 0xBEEF, SafetyState::Nominal).unwrap();
         forged.append(3.0, 1, 0xCAFE, SafetyState::Nominal).unwrap();
-        assert_eq!(verify_anchor(&forged, &a, &key()), VerifyResult::ChainRewritten);
+        assert_eq!(
+            verify_anchor(&forged, &a, &key()),
+            VerifyResult::ChainRewritten
+        );
     }
 
     #[test]
@@ -203,7 +235,10 @@ mod tests {
         store.store(a.clone());
         assert_eq!(store.count(), 1);
         assert!(store.latest().is_some());
-        assert_eq!(verify_anchor(&c, store.latest().unwrap(), &key()), VerifyResult::Ok);
+        assert_eq!(
+            verify_anchor(&c, store.latest().unwrap(), &key()),
+            VerifyResult::Ok
+        );
     }
 
     #[test]

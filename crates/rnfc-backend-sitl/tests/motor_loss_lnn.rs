@@ -1,4 +1,4 @@
-﻿//! Motor Loss FTC via LNN Evolution
+//! Motor Loss FTC via LNN Evolution
 //!
 //! Fase 2b: evoluir 100 LNNs x 30 geracoes para sobreviver a motor loss.
 //! Compara com PID baseline (0.5s de sobrevivencia).
@@ -18,7 +18,7 @@ const MASS: f32 = 1.0;
 const DAMPING: f32 = 0.8;
 const CRASH_ROLL: f32 = 1.05;
 const CRASH_ALT: f32 = 1.0;
-const MAX_STEPS: usize = 2000;  // 20s
+const MAX_STEPS: usize = 2000; // 20s
 
 const POP_SIZE: usize = 150;
 const GENERATIONS: usize = 60;
@@ -38,9 +38,9 @@ struct State {
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Outcome {
-    Landed,     // descida controlada
-    Timeout,    // sobreviveu 20s sem aterrar
-    Crashed,    // roll > 60 graus
+    Landed,  // descida controlada
+    Timeout, // sobreviveu 20s sem aterrar
+    Crashed, // roll > 60 graus
 }
 
 fn motor_mixing(thrust: f32, roll_diff: f32) -> [f32; 4] {
@@ -54,7 +54,10 @@ fn motor_mixing(thrust: f32, roll_diff: f32) -> [f32; 4] {
 
 fn simulate_lnn(net: &mut Net, fail_m1_at: Option<f32>) -> (State, Outcome, f32) {
     net.reset();
-    let mut state = State { altitude: 10.0, ..Default::default() };
+    let mut state = State {
+        altitude: 10.0,
+        ..Default::default()
+    };
 
     for i in 0..MAX_STEPS {
         let t = i as f32 * DT;
@@ -80,7 +83,9 @@ fn simulate_lnn(net: &mut Net, fail_m1_at: Option<f32>) -> (State, Outcome, f32)
 
         let [mut m1, m2, m3, m4] = motor_mixing(thrust, roll_diff);
         if let Some(tf) = fail_m1_at {
-            if t >= tf { m1 = 0.0; }
+            if t >= tf {
+                m1 = 0.0;
+            }
         }
 
         // Physics
@@ -90,14 +95,21 @@ fn simulate_lnn(net: &mut Net, fail_m1_at: Option<f32>) -> (State, Outcome, f32)
 
         state.roll_rate += roll_accel * DT;
         state.roll += state.roll_rate * DT;
-        while state.roll > core::f32::consts::PI { state.roll -= 2.0 * core::f32::consts::PI; }
-        while state.roll < -core::f32::consts::PI { state.roll += 2.0 * core::f32::consts::PI; }
+        while state.roll > core::f32::consts::PI {
+            state.roll -= 2.0 * core::f32::consts::PI;
+        }
+        while state.roll < -core::f32::consts::PI {
+            state.roll += 2.0 * core::f32::consts::PI;
+        }
 
         let vert_thrust = total_thrust * state.roll.cos();
         let a_z = (vert_thrust - MASS * 9.81) / MASS;
         state.vertical_vel += a_z * DT;
         state.altitude += state.vertical_vel * DT;
-        if state.altitude < 0.0 { state.altitude = 0.0; state.vertical_vel = 0.0; }
+        if state.altitude < 0.0 {
+            state.altitude = 0.0;
+            state.vertical_vel = 0.0;
+        }
 
         // Classify
         if state.roll.abs() > CRASH_ROLL {
@@ -116,7 +128,10 @@ fn simulate_lnn(net: &mut Net, fail_m1_at: Option<f32>) -> (State, Outcome, f32)
 }
 
 fn simulate_pid_baseline(fail_m1_at: Option<f32>) -> (State, Outcome, f32) {
-    let mut state = State { altitude: 10.0, ..Default::default() };
+    let mut state = State {
+        altitude: 10.0,
+        ..Default::default()
+    };
     let mut ctrl = AttitudeController::new();
 
     for i in 0..MAX_STEPS {
@@ -126,7 +141,9 @@ fn simulate_pid_baseline(fail_m1_at: Option<f32>) -> (State, Outcome, f32) {
 
         let [mut m1, m2, m3, m4] = motor_mixing(HOVER_THRUST, roll_diff);
         if let Some(tf) = fail_m1_at {
-            if t >= tf { m1 = 0.0; }
+            if t >= tf {
+                m1 = 0.0;
+            }
         }
 
         let total_thrust = m1 + m2 + m3 + m4;
@@ -139,7 +156,10 @@ fn simulate_pid_baseline(fail_m1_at: Option<f32>) -> (State, Outcome, f32) {
         let a_z = (vert_thrust - MASS * 9.81) / MASS;
         state.vertical_vel += a_z * DT;
         state.altitude += state.vertical_vel * DT;
-        if state.altitude < 0.0 { state.altitude = 0.0; state.vertical_vel = 0.0; }
+        if state.altitude < 0.0 {
+            state.altitude = 0.0;
+            state.vertical_vel = 0.0;
+        }
 
         if state.roll.abs() > CRASH_ROLL {
             return (state, Outcome::Crashed, t);
@@ -166,17 +186,16 @@ fn fitness(net: &mut Net) -> f32 {
 
     if !hover_ok {
         return match outcome_h {
-            Outcome::Crashed => t_h * 0.1,   // max 2.0
-            Outcome::Landed => -500.0,        // CHEAT: aterrou sem falha
+            Outcome::Crashed => t_h * 0.1, // max 2.0
+            Outcome::Landed => -500.0,     // CHEAT: aterrou sem falha
             _ => 0.0,
         };
     }
 
     // ========== FASE 2: HOVER REWARD ==========
     // Hover vale ~1000 (dominante sobre qualquer bonus de recovery)
-    let healthy_reward = 1000.0
-        - (state_h.altitude - 10.0).abs() * 50.0
-        - state_h.roll.abs() * 200.0;
+    let healthy_reward =
+        1000.0 - (state_h.altitude - 10.0).abs() * 50.0 - state_h.roll.abs() * 200.0;
 
     // ========== FASE 3: MOTOR LOSS BONUS ==========
     // Recovery vale ate ~500, MENOS que hover (forca coexistencia)
@@ -189,21 +208,29 @@ fn fitness(net: &mut Net) -> f32 {
         }
         Outcome::Landed => t_f,
         Outcome::Timeout => 200.0,
-        Outcome::Crashed => 0.0,         // sem bonus, mas mantem hover
+        Outcome::Crashed => 0.0, // sem bonus, mas mantem hover
     };
 
     healthy_reward + failed_bonus
 }
 
 // ============ Genetic Algorithm ============
-struct Rng { state: u32 }
+struct Rng {
+    state: u32,
+}
 impl Rng {
-    fn new(seed: u32) -> Self { Self { state: seed.wrapping_add(1) } }
+    fn new(seed: u32) -> Self {
+        Self {
+            state: seed.wrapping_add(1),
+        }
+    }
     fn next(&mut self) -> u32 {
         self.state = self.state.wrapping_mul(1664525).wrapping_add(1013904223);
         self.state
     }
-    fn f32(&mut self) -> f32 { (self.next() >> 8) as f32 / 16777216.0 }
+    fn f32(&mut self) -> f32 {
+        (self.next() >> 8) as f32 / 16777216.0
+    }
     fn normal(&mut self) -> f32 {
         // Box-Muller simplificado
         let u1 = self.f32().max(1e-6);
@@ -252,20 +279,23 @@ fn lnn_evolution_survives_motor_loss() {
     let mut rng = Rng::new(42);
     let n_params = Net::param_count();
     println!("LNN architecture: 5 -> 8 -> 2 ({} parametros)", n_params);
-    println!("Populacao: {}, Geracoes: {}, Total: {} simulacoes\n",
-        POP_SIZE, GENERATIONS, POP_SIZE * GENERATIONS);
+    println!(
+        "Populacao: {}, Geracoes: {}, Total: {} simulacoes\n",
+        POP_SIZE,
+        GENERATIONS,
+        POP_SIZE * GENERATIONS
+    );
 
     // Populacao inicial
-    let mut population: Vec<Net> = (0..POP_SIZE)
-        .map(|_| random_net(&mut rng))
-        .collect();
+    let mut population: Vec<Net> = (0..POP_SIZE).map(|_| random_net(&mut rng)).collect();
 
     let mut best_fitness_ever = 0.0_f32;
     let mut best_net_ever: Option<Net> = None;
 
     for gen in 0..GENERATIONS {
         // Avaliar
-        let mut scored: Vec<(usize, f32)> = population.iter_mut()
+        let mut scored: Vec<(usize, f32)> = population
+            .iter_mut()
             .enumerate()
             .map(|(i, net)| (i, fitness(net)))
             .collect();
@@ -313,45 +343,67 @@ fn lnn_evolution_survives_motor_loss() {
     // Testar o melhor LNN
     if let Some(mut best) = best_net_ever {
         let (state_h, out_h, t_h) = simulate_lnn(&mut best, None);
-        println!("HEALTHY: {:?} em {:.2}s (roll={:.1}° alt={:.2}m)",
-            out_h, t_h, state_h.roll.to_degrees(), state_h.altitude);
+        println!(
+            "HEALTHY: {:?} em {:.2}s (roll={:.1}° alt={:.2}m)",
+            out_h,
+            t_h,
+            state_h.roll.to_degrees(),
+            state_h.altitude
+        );
 
-        let (state_f, out_f, t_f) = simulate_lnn(&mut best, Some(1.0));  // sincronizado
-        println!("MOTOR LOSS: {:?} em {:.2}s (roll={:.1}° alt={:.2}m)",
-            out_f, t_f, state_f.roll.to_degrees(), state_f.altitude);
+        let (state_f, out_f, t_f) = simulate_lnn(&mut best, Some(1.0)); // sincronizado
+        println!(
+            "MOTOR LOSS: {:?} em {:.2}s (roll={:.1}° alt={:.2}m)",
+            out_f,
+            t_f,
+            state_f.roll.to_degrees(),
+            state_f.altitude
+        );
 
         // PID baseline
         let (_, pid_f, pid_t) = simulate_pid_baseline(Some(5.0));
         println!("PID BASELINE (motor loss): {:?} em {:.2}s", pid_f, pid_t);
 
         // Asserts
-        assert!(best_fitness_ever > 500.0,
-            "LNN nao superou PID (fitness={:.1} < 5.0)", best_fitness_ever);
-        
+        assert!(
+            best_fitness_ever > 500.0,
+            "LNN nao superou PID (fitness={:.1} < 5.0)",
+            best_fitness_ever
+        );
+
         // Comparar OUTCOMES (nao tempos)
         let pid_crashed = matches!(pid_f, Outcome::Crashed);
         let lnn_survived = matches!(out_f, Outcome::Landed | Outcome::Timeout);
-        
-        assert!(pid_crashed, "PID deveria crashar (baseline). Outcome={:?}", pid_f);
-        assert!(lnn_survived,
-            "LNN deveria sobreviver (Landed ou Timeout). Outcome={:?}, t={:.2}s", out_f, t_f);
-        
-        // Verificar que a LNN tambem faz hover saudavel (nao aterra cheat)
-        assert!(matches!(out_h, Outcome::Timeout),
-            "LNN nao faz hover saudavel (Outcome={:?}, t={:.2}s)", out_h, t_h);
-        assert!((state_h.altitude - 10.0).abs() < 3.0,
-            "LNN healthy altitude fora de range: {:.2}m", state_h.altitude);
 
-        println!("\n[OK] LNN sobrevive {:.1}x mais que PID", t_f / pid_t.max(0.1));
+        assert!(
+            pid_crashed,
+            "PID deveria crashar (baseline). Outcome={:?}",
+            pid_f
+        );
+        assert!(
+            lnn_survived,
+            "LNN deveria sobreviver (Landed ou Timeout). Outcome={:?}, t={:.2}s",
+            out_f, t_f
+        );
+
+        // Verificar que a LNN tambem faz hover saudavel (nao aterra cheat)
+        assert!(
+            matches!(out_h, Outcome::Timeout),
+            "LNN nao faz hover saudavel (Outcome={:?}, t={:.2}s)",
+            out_h,
+            t_h
+        );
+        assert!(
+            (state_h.altitude - 10.0).abs() < 3.0,
+            "LNN healthy altitude fora de range: {:.2}m",
+            state_h.altitude
+        );
+
+        println!(
+            "\n[OK] LNN sobrevive {:.1}x mais que PID",
+            t_f / pid_t.max(0.1)
+        );
     } else {
         panic!("Nenhuma LNN encontrada");
     }
 }
-
-
-
-
-
-
-
-

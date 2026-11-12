@@ -1,4 +1,4 @@
-﻿#![allow(clippy::new_without_default)]
+#![allow(clippy::new_without_default)]
 //! Attitude estimator: accel + gyro -> roll/pitch (complementary filter).
 //! Padrao ArduPilot/PX4. Sem isto, o controlador nao voa em hardware real.
 
@@ -12,7 +12,11 @@ pub struct AttitudeEstimator {
 
 impl AttitudeEstimator {
     pub fn new() -> Self {
-        Self { roll: 0.0, pitch: 0.0, alpha: 0.98 }
+        Self {
+            roll: 0.0,
+            pitch: 0.0,
+            alpha: 0.98,
+        }
     }
 
     /// accel (body frame, m/s²), gyro (body frame, rad/s), dt (s).
@@ -60,27 +64,35 @@ mod tests {
     fn pitched_forward_detects_pitch() {
         let mut e = AttitudeEstimator::new();
         // pitch +30 graus: ax = -sin(30)*g, az = -cos(30)*g
-        let pitch_target = 0.5236_f32;  // 30 graus
+        let pitch_target = 0.5236_f32; // 30 graus
         let ax = -pitch_target.sin() * 9.81;
         let az = -pitch_target.cos() * 9.81;
         for _ in 0..500 {
             e.update([ax, 0.0, az], [0.0, 0.0, 0.0], 0.01);
         }
-        assert!((e.pitch - pitch_target).abs() < 0.05,
-            "pitch={} target={}", e.pitch, pitch_target);
+        assert!(
+            (e.pitch - pitch_target).abs() < 0.05,
+            "pitch={} target={}",
+            e.pitch,
+            pitch_target
+        );
     }
 
     #[test]
     fn rolled_right_detects_roll() {
         let mut e = AttitudeEstimator::new();
-        let roll_target = 0.3_f32;  // ~17 graus
+        let roll_target = 0.3_f32; // ~17 graus
         let ay = -roll_target.sin() * 9.81;
         let az = -roll_target.cos() * 9.81;
         for _ in 0..500 {
             e.update([0.0, ay, az], [0.0, 0.0, 0.0], 0.01);
         }
-        assert!((e.roll - roll_target).abs() < 0.05,
-            "roll={} target={}", e.roll, roll_target);
+        assert!(
+            (e.roll - roll_target).abs() < 0.05,
+            "roll={} target={}",
+            e.roll,
+            roll_target
+        );
     }
 
     #[test]
@@ -88,7 +100,7 @@ mod tests {
         let mut e = AttitudeEstimator::new();
         // gyro puro sem accel confiavel (free-fall) - integra direto
         for _ in 0..100 {
-            e.update([0.0, 0.0, 0.0], [0.5, 0.0, 0.0], 0.01);  // 0.5 rad/s
+            e.update([0.0, 0.0, 0.0], [0.5, 0.0, 0.0], 0.01); // 0.5 rad/s
         }
         // 100 * 0.01 * 0.5 = 0.5 rad
         assert!((e.roll - 0.5).abs() < 0.05, "roll={}", e.roll);
@@ -111,13 +123,11 @@ mod tests {
     #[test]
     fn converges_from_wrong_initial() {
         let mut e = AttitudeEstimator::new();
-        e.roll = 0.5;  // começa errado
-        // Accel diz "nivelado"
+        e.roll = 0.5; // começa errado
+                      // Accel diz "nivelado"
         for _ in 0..1000 {
             e.update([0.0, 0.0, -9.81], [0.0, 0.0, 0.0], 0.01);
         }
         assert!(e.roll.abs() < 0.05, "nao convergiu: roll={}", e.roll);
     }
 }
-
-

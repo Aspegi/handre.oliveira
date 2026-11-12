@@ -1,4 +1,4 @@
-﻿//! SCC demo: compile safety requirements into 3 artifacts.
+//! SCC demo: compile safety requirements into 3 artifacts.
 //! Run: cargo run -p rnfc-scc --example scc_demo
 
 use rnfc_scc::{compile_requirements, generate_gsn, generate_test, parse_requirements};
@@ -19,13 +19,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 3. Generate test stubs
     let mut tests = String::new();
-    for r in &reqs { tests.push_str(&generate_test(r)); tests.push('\n'); }
+    for r in &reqs {
+        tests.push_str(&generate_test(r));
+        tests.push('\n');
+    }
     fs::write("generated_tests.rs", &tests)?;
     println!("[3] Generated generated_tests.rs ({} bytes)", tests.len());
 
     // 4. Compile chain
     let chain = compile_requirements(&reqs)?;
-    println!("[4] Compiled chain: {} blocks, root=0x{:016x}", chain.block_count(), chain.root_hash());
+    println!(
+        "[4] Compiled chain: {} blocks, root=0x{:016x}",
+        chain.block_count(),
+        chain.root_hash()
+    );
     assert!(chain.verify(), "chain failed verification");
 
     // 5. Generate GSN safety case
@@ -43,7 +50,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Artifacts: requirements.safety, generated_tests.rs, safety_case_gsn.md");
 
     let mut f = fs::File::create("scc_demo_output.txt")?;
-    writeln!(f, "SCC compiled {} requirements into chain root 0x{:016x}", reqs.len(), chain.root_hash())?;
+    writeln!(
+        f,
+        "SCC compiled {} requirements into chain root 0x{:016x}",
+        reqs.len(),
+        chain.root_hash()
+    )?;
 
     Ok(())
 }

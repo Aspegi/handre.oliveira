@@ -1,4 +1,4 @@
-﻿//! CERTIS — Certifiable Evidence from Real-Time Integrated Safety.
+//! CERTIS — Certifiable Evidence from Real-Time Integrated Safety.
 //!
 //! Compilador de safety cases a partir de eventos de runtime do RNFC.
 //!
@@ -44,7 +44,7 @@ pub enum FailsafeActionKind {
 pub struct SafetyEvent {
     pub timestamp_s: f32,
     pub kind: SafetyEventType,
-    pub hash: u64,       // hash chain: sha-like do evento + hash prev
+    pub hash: u64, // hash chain: sha-like do evento + hash prev
     pub prev_hash: u64,
 }
 
@@ -229,7 +229,10 @@ pub fn fault_tree_to_json(node: &FaultNode, indent: usize) -> String {
     let mut s = String::new();
     s.push_str(&format!("{}{{\n", pad));
     s.push_str(&format!("{}\"id\": \"{}\",\n", pad2, node.id));
-    s.push_str(&format!("{}\"description\": \"{}\",\n", pad2, node.description));
+    s.push_str(&format!(
+        "{}\"description\": \"{}\",\n",
+        pad2, node.description
+    ));
     s.push_str(&format!("{}\"event_count\": {},\n", pad2, node.event_count));
     if let Some(m) = &node.mitigation {
         s.push_str(&format!("{}\"mitigation\": \"{}\",\n", pad2, m));
@@ -290,7 +293,11 @@ mod tests {
         let tree = generate_fault_tree(&r);
         assert_eq!(tree.event_count, 3);
         assert_eq!(tree.children.len(), 2);
-        let stuck_node = tree.children.iter().find(|c| c.id == "sensor_stuck").unwrap();
+        let stuck_node = tree
+            .children
+            .iter()
+            .find(|c| c.id == "sensor_stuck")
+            .unwrap();
         assert_eq!(stuck_node.event_count, 2);
         assert!(stuck_node.mitigation.is_some());
     }
@@ -328,8 +335,18 @@ mod tests {
     #[test]
     fn pilot_events_tracked() {
         let mut r = CertisRecorder::new("test_008");
-        r.record(1.0, SafetyEventType::PilotOverride { command: "roll_right".into() });
-        r.record(2.0, SafetyEventType::PilotResisted { reason: "geofence".into() });
+        r.record(
+            1.0,
+            SafetyEventType::PilotOverride {
+                command: "roll_right".into(),
+            },
+        );
+        r.record(
+            2.0,
+            SafetyEventType::PilotResisted {
+                reason: "geofence".into(),
+            },
+        );
         let tree = generate_fault_tree(&r);
         assert!(tree.children.iter().any(|c| c.id == "pilot_override"));
         assert!(tree.children.iter().any(|c| c.id == "pilot_resisted"));
@@ -342,18 +359,21 @@ mod tests {
 pub struct FmeaEntry {
     pub failure_mode: String,
     pub cause: String,
-    pub severity: u8,        // 1-10 (10 = catastrófico)
-    pub occurrence: u8,      // 1-10 (10 = frequente)
-    pub detection: u8,       // 1-10 (10 = indetectável)
-    pub rpn: u16,            // Risk Priority Number = sev * occ * det
+    pub severity: u8,   // 1-10 (10 = catastrófico)
+    pub occurrence: u8, // 1-10 (10 = frequente)
+    pub detection: u8,  // 1-10 (10 = indetectável)
+    pub rpn: u16,       // Risk Priority Number = sev * occ * det
     pub mitigation: String,
     pub evidence_count: u32, // Nº de vezes que ocorreu (dos eventos)
 }
 
 impl FmeaEntry {
     pub fn new(
-        failure_mode: &str, cause: &str,
-        severity: u8, occurrence: u8, detection: u8,
+        failure_mode: &str,
+        cause: &str,
+        severity: u8,
+        occurrence: u8,
+        detection: u8,
         mitigation: &str,
     ) -> Self {
         Self {
@@ -369,10 +389,15 @@ impl FmeaEntry {
     }
 
     pub fn risk_level(&self) -> &'static str {
-        if self.rpn >= 200 { "CRITICAL" }
-        else if self.rpn >= 100 { "HIGH" }
-        else if self.rpn >= 50 { "MEDIUM" }
-        else { "LOW" }
+        if self.rpn >= 200 {
+            "CRITICAL"
+        } else if self.rpn >= 100 {
+            "HIGH"
+        } else if self.rpn >= 50 {
+            "MEDIUM"
+        } else {
+            "LOW"
+        }
     }
 }
 
@@ -382,55 +407,73 @@ pub fn generate_fmea(recorder: &CertisRecorder) -> Vec<FmeaEntry> {
         FmeaEntry::new(
             "Single sensor stuck",
             "Hardware failure in IMU/Mag",
-            7, 2, 1,
+            7,
+            2,
+            1,
             "SensorHealth detects stuck, ZombieDetector -> RTL",
         ),
         FmeaEntry::new(
             "Sensor spoofing",
             "External magnetic interference or adversarial attack",
-            8, 3, 1,
+            8,
+            3,
+            1,
             "SpoofingDetector (mag vs gyro divergence)",
         ),
         FmeaEntry::new(
             "Sensor outlier",
             "EMI, vibration, or calibration drift",
-            5, 5, 2,
+            5,
+            5,
+            2,
             "SensorVoter 2-of-3 majority voting",
         ),
         FmeaEntry::new(
             "Motor loss (actuator failure)",
             "Motor burn-out, ESC failure, or prop loss",
-            10, 1, 3,
+            10,
+            1,
+            3,
             "LNN-FTC two-phase recovery (hover + landing)",
         ),
         FmeaEntry::new(
             "Zombie orbit",
             "Adversarial wind + sensor noise causes stuck",
-            6, 4, 2,
+            6,
+            4,
+            2,
             "ZombieDetector (>60s stuck -> RTL latch)",
         ),
         FmeaEntry::new(
             "GNSS dropout",
             "Jamming, urban canyon, or tunnel",
-            7, 4, 1,
+            7,
+            4,
+            1,
             "Kalman dead-reckoning 10s",
         ),
         FmeaEntry::new(
             "Battery depletion",
             "Long mission or unexpected drain",
-            7, 3, 2,
+            7,
+            3,
+            2,
             "Failsafe RTL at 10.5V",
         ),
         FmeaEntry::new(
             "Geofence breach",
             "Pilot error or wind drift",
-            6, 2, 1,
+            6,
+            2,
+            1,
             "Failsafe ReturnToLaunch",
         ),
         FmeaEntry::new(
             "Pilot override unsafe command",
             "Human error",
-            6, 3, 2,
+            6,
+            3,
+            2,
             "HASE safety filter + haptic feedback",
         ),
     ];
@@ -458,13 +501,22 @@ pub fn generate_fmea(recorder: &CertisRecorder) -> Vec<FmeaEntry> {
 pub fn fmea_to_markdown(entries: &[FmeaEntry], mission_id: &str) -> String {
     let mut s = String::new();
     s.push_str(&format!("# FMEA — Mission {}\n\n", mission_id));
-    s.push_str("| Failure Mode | Cause | Sev | Occ | Det | RPN | Level | Mitigation | Evidence |\n");
+    s.push_str(
+        "| Failure Mode | Cause | Sev | Occ | Det | RPN | Level | Mitigation | Evidence |\n",
+    );
     s.push_str("|---|---|---|---|---|---|---|---|---|\n");
     for e in entries {
         s.push_str(&format!(
             "| {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
-            e.failure_mode, e.cause, e.severity, e.occurrence, e.detection,
-            e.rpn, e.risk_level(), e.mitigation, e.evidence_count
+            e.failure_mode,
+            e.cause,
+            e.severity,
+            e.occurrence,
+            e.detection,
+            e.rpn,
+            e.risk_level(),
+            e.mitigation,
+            e.evidence_count
         ));
     }
     s
@@ -492,10 +544,14 @@ pub fn generate_gsn(recorder: &CertisRecorder) -> Vec<GsnNode> {
         },
     ];
 
-    let has_sensor = recorder.events.iter().any(|e| matches!(
-        e.kind,
-        SafetyEventType::SensorStuck | SafetyEventType::SensorSpoof | SafetyEventType::SensorOutlier
-    ));
+    let has_sensor = recorder.events.iter().any(|e| {
+        matches!(
+            e.kind,
+            SafetyEventType::SensorStuck
+                | SafetyEventType::SensorSpoof
+                | SafetyEventType::SensorOutlier
+        )
+    });
     if has_sensor {
         gsn.push(GsnNode::Goal {
             id: "G1.1".into(),
@@ -503,17 +559,26 @@ pub fn generate_gsn(recorder: &CertisRecorder) -> Vec<GsnNode> {
         });
         gsn.push(GsnNode::Solution {
             id: "Sn1.1".into(),
-            text: format!("SensorHealth + SensorVoter detected {} events in runtime", recorder.events.len()),
+            text: format!(
+                "SensorHealth + SensorVoter detected {} events in runtime",
+                recorder.events.len()
+            ),
         });
     }
 
-    let has_motor = recorder.events.iter().any(|e| matches!(e.kind, SafetyEventType::MotorLossDetected { .. }));
+    let has_motor = recorder
+        .events
+        .iter()
+        .any(|e| matches!(e.kind, SafetyEventType::MotorLossDetected { .. }));
     if has_motor {
         gsn.push(GsnNode::Goal {
             id: "G1.2".into(),
             text: "Actuator faults are recovered by LNN-FTC".into(),
         });
-        let recovery_ok = recorder.events.iter().any(|e| matches!(e.kind, SafetyEventType::LnnRecoverySucceeded));
+        let recovery_ok = recorder
+            .events
+            .iter()
+            .any(|e| matches!(e.kind, SafetyEventType::LnnRecoverySucceeded));
         gsn.push(GsnNode::Solution {
             id: "Sn1.2".into(),
             text: if recovery_ok {
@@ -524,10 +589,12 @@ pub fn generate_gsn(recorder: &CertisRecorder) -> Vec<GsnNode> {
         });
     }
 
-    let has_pilot = recorder.events.iter().any(|e| matches!(
-        e.kind,
-        SafetyEventType::PilotOverride { .. } | SafetyEventType::PilotResisted { .. }
-    ));
+    let has_pilot = recorder.events.iter().any(|e| {
+        matches!(
+            e.kind,
+            SafetyEventType::PilotOverride { .. } | SafetyEventType::PilotResisted { .. }
+        )
+    });
     if has_pilot {
         gsn.push(GsnNode::Goal {
             id: "G1.3".into(),
@@ -548,8 +615,12 @@ pub fn gsn_to_markdown(nodes: &[GsnNode], mission_id: &str) -> String {
     for n in nodes {
         match n {
             GsnNode::Goal { id, text } => s.push_str(&format!("- **Goal {}**: {}\n", id, text)),
-            GsnNode::Strategy { id, text } => s.push_str(&format!("  - *Strategy {}*: {}\n", id, text)),
-            GsnNode::Solution { id, text } => s.push_str(&format!("    - Evidence {}: {}\n", id, text)),
+            GsnNode::Strategy { id, text } => {
+                s.push_str(&format!("  - *Strategy {}*: {}\n", id, text))
+            }
+            GsnNode::Solution { id, text } => {
+                s.push_str(&format!("    - Evidence {}: {}\n", id, text))
+            }
         }
     }
     s
@@ -577,8 +648,14 @@ impl SafetyCase {
 
     pub fn to_markdown(&self) -> String {
         let mut s = String::new();
-        s.push_str(&format!("# CERTIS Safety Case — Mission {}\n\n", self.mission_id));
-        s.push_str(&format!("**Root hash (tamper-evident):** `{:#018x}`\n\n", self.root_hash));
+        s.push_str(&format!(
+            "# CERTIS Safety Case — Mission {}\n\n",
+            self.mission_id
+        ));
+        s.push_str(&format!(
+            "**Root hash (tamper-evident):** `{:#018x}`\n\n",
+            self.root_hash
+        ));
         s.push_str("---\n\n## 1. GSN (Goal Structuring Notation)\n\n");
         s.push_str(&gsn_to_markdown(&self.gsn, &self.mission_id));
         s.push_str("\n---\n\n## 2. FMEA (Failure Mode and Effects Analysis)\n\n");
@@ -623,7 +700,10 @@ mod tests_fase2 {
         r.record(1.0, SafetyEventType::MotorLossDetected { motor: 1 });
         r.record(2.0, SafetyEventType::MotorLossDetected { motor: 2 });
         let fmea = generate_fmea(&r);
-        let motor_entry = fmea.iter().find(|e| e.failure_mode.contains("Motor")).unwrap();
+        let motor_entry = fmea
+            .iter()
+            .find(|e| e.failure_mode.contains("Motor"))
+            .unwrap();
         assert_eq!(motor_entry.evidence_count, 2);
     }
 
@@ -640,16 +720,25 @@ mod tests_fase2 {
     #[test]
     fn gsn_includes_pilot_if_events() {
         let mut r = CertisRecorder::new("test");
-        r.record(1.0, SafetyEventType::PilotOverride { command: "x".into() });
+        r.record(
+            1.0,
+            SafetyEventType::PilotOverride {
+                command: "x".into(),
+            },
+        );
         let gsn = generate_gsn(&r);
-        assert!(gsn.iter().any(|n| matches!(n, GsnNode::Goal { id, .. } if id == "G1.3")));
+        assert!(gsn
+            .iter()
+            .any(|n| matches!(n, GsnNode::Goal { id, .. } if id == "G1.3")));
     }
 
     #[test]
     fn gsn_excludes_motor_if_no_events() {
         let r = CertisRecorder::new("test");
         let gsn = generate_gsn(&r);
-        assert!(!gsn.iter().any(|n| matches!(n, GsnNode::Goal { id, .. } if id == "G1.2")));
+        assert!(!gsn
+            .iter()
+            .any(|n| matches!(n, GsnNode::Goal { id, .. } if id == "G1.2")));
     }
 
     #[test]
@@ -662,7 +751,7 @@ mod tests_fase2 {
         assert_eq!(sc.mission_id, "mission_x");
         assert_eq!(sc.fmea.len(), 9);
         assert_ne!(sc.root_hash, 0);
-        assert!(sc.gsn.len() >= 4);  // G1, S1, G1.1, Sn1.1, G1.2, Sn1.2
+        assert!(sc.gsn.len() >= 4); // G1, S1, G1.1, Sn1.1, G1.2, Sn1.2
     }
 
     #[test]

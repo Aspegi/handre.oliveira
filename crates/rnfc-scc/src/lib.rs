@@ -1,4 +1,4 @@
-﻿//! SCC — Safety Case Compiler.
+//! SCC — Safety Case Compiler.
 //!
 //! Takes safety requirements in a small DSL and compiles them into:
 //! 1. Rust test stubs (specifications)
@@ -11,7 +11,11 @@
 use rnfc_certchain::{CertChain, SafetyState};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ReqType { SpeedMax, AltitudeRange, ObstacleClearance }
+pub enum ReqType {
+    SpeedMax,
+    AltitudeRange,
+    ObstacleClearance,
+}
 
 #[derive(Clone, Debug)]
 pub struct Requirement {
@@ -25,8 +29,11 @@ pub fn parse_requirements(input: &str) -> Result<Vec<Requirement>, String> {
     let mut reqs = Vec::new();
     for (line_no, raw) in input.lines().enumerate() {
         let line = raw.trim();
-        if line.is_empty() || line.starts_with('#') { continue; }
-        let (key, rest) = line.split_once(':')
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let (key, rest) = line
+            .split_once(':')
             .ok_or_else(|| format!("line {}: missing ':'", line_no + 1))?;
         let key = key.trim();
         let parts: Vec<&str> = rest.trim().split_whitespace().collect();
@@ -35,12 +42,17 @@ pub fn parse_requirements(input: &str) -> Result<Vec<Requirement>, String> {
         }
         let severity = parts[parts.len() - 1].to_string();
         if severity != "HIGH" && severity != "MEDIUM" && severity != "LOW" {
-            return Err(format!("line {}: severity must be HIGH/MEDIUM/LOW", line_no + 1));
+            return Err(format!(
+                "line {}: severity must be HIGH/MEDIUM/LOW",
+                line_no + 1
+            ));
         }
         let mut values = Vec::new();
         for s in &parts[..parts.len() - 1] {
-            values.push(s.parse::<f32>().map_err(|_|
-                format!("line {}: '{}' is not a number", line_no + 1, s))?);
+            values.push(
+                s.parse::<f32>()
+                    .map_err(|_| format!("line {}: '{}' is not a number", line_no + 1, s))?,
+            );
         }
         let req_type = match key {
             "speed_max" => ReqType::SpeedMax,
@@ -48,7 +60,12 @@ pub fn parse_requirements(input: &str) -> Result<Vec<Requirement>, String> {
             "obstacle_clearance" => ReqType::ObstacleClearance,
             _ => return Err(format!("line {}: unknown type '{}'", line_no + 1, key)),
         };
-        reqs.push(Requirement { name: key.to_string(), req_type, values, severity });
+        reqs.push(Requirement {
+            name: key.to_string(),
+            req_type,
+            values,
+            severity,
+        });
     }
     Ok(reqs)
 }
@@ -65,7 +82,10 @@ pub fn generate_test(req: &Requirement) -> String {
 pub fn generate_gsn(req: &Requirement, block_idx: usize) -> String {
     let desc = match req.req_type {
         ReqType::SpeedMax => format!("velocity <= {:.1} m/s", req.values[0]),
-        ReqType::AltitudeRange => format!("{:.1} m <= altitude <= {:.1} m", req.values[0], req.values[1]),
+        ReqType::AltitudeRange => format!(
+            "{:.1} m <= altitude <= {:.1} m",
+            req.values[0], req.values[1]
+        ),
         ReqType::ObstacleClearance => format!("distance_to_obstacle >= {:.1} m", req.values[0]),
     };
     format!("### G_{}: {}\n- **Type**: Invariant\n- **Severity**: {}\n- **Evidence**: `test_{}_invariant`\n- **Chain block**: {}\n\n", req.name, desc, req.severity, req.name, block_idx)
@@ -76,11 +96,17 @@ pub fn compile_requirements(reqs: &[Requirement]) -> Result<CertChain, String> {
     for (i, r) in reqs.iter().enumerate() {
         let mut buf = Vec::new();
         buf.extend_from_slice(r.name.as_bytes());
-        for v in &r.values { buf.extend_from_slice(&v.to_le_bytes()); }
+        for v in &r.values {
+            buf.extend_from_slice(&v.to_le_bytes());
+        }
         buf.extend_from_slice(r.severity.as_bytes());
         let mut h: u64 = 0xcbf29ce484222325;
-        for &b in &buf { h ^= b as u64; h = h.wrapping_mul(0x100000001b3); }
-        chain.append(i as f32, 1, h, SafetyState::Nominal)
+        for &b in &buf {
+            h ^= b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+        chain
+            .append(i as f32, 1, h, SafetyState::Nominal)
             .map_err(|e| format!("chain error at block {}: {:?}", i, e))?;
     }
     Ok(chain)

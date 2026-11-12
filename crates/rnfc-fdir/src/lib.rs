@@ -1,8 +1,6 @@
-﻿#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_std)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::needless_range_loop)]
-
-
 
 //! FDIR â€” Fault Detection, Isolation & Recovery.
 //!
@@ -10,7 +8,6 @@
 //! e dispara aÃ§Ãµes de failsafe (RTL, hover, land).
 
 use libm::sqrtf;
-
 
 /// Health state de um sensor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -135,7 +132,10 @@ impl Failsafe {
         let dy = pos[1] - self.geofence_center[1];
         let dist = sqrtf(dx * dx + dy * dy);
         if dist > self.geofence_radius_m {
-            return (FailsafeTrigger::GeofenceBreach, FailsafeAction::ReturnToLaunch);
+            return (
+                FailsafeTrigger::GeofenceBreach,
+                FailsafeAction::ReturnToLaunch,
+            );
         }
 
         // P2: Bateria
@@ -197,8 +197,11 @@ mod tests {
         for _ in 0..5 {
             last = h.update(100.0);
         }
-        assert!(matches!(last, Health::Outlier | Health::Stuck),
-                "esperado Outlier/Stuck, obtido {:?}", last);
+        assert!(
+            matches!(last, Health::Outlier | Health::Stuck),
+            "esperado Outlier/Stuck, obtido {:?}",
+            last
+        );
     }
 
     #[test]
@@ -257,8 +260,8 @@ impl SpoofingDetector {
         Self {
             err_history: [0.0; 10],
             idx: 0,
-            threshold_rad: 0.35,        // 20 graus
-            spike_threshold_rad: 0.52,  // 30 graus
+            threshold_rad: 0.35,       // 20 graus
+            spike_threshold_rad: 0.52, // 30 graus
             spike_count: 0,
         }
     }
@@ -266,20 +269,31 @@ impl SpoofingDetector {
     /// Devolve true se spoofing detetado (deve abortar).
     pub fn update(&mut self, mag_yaw: f32, gyro_yaw: f32) -> bool {
         let mut err = mag_yaw - gyro_yaw;
-        while err > core::f32::consts::PI { err -= 2.0 * core::f32::consts::PI; }
-        while err < -core::f32::consts::PI { err += 2.0 * core::f32::consts::PI; }
+        while err > core::f32::consts::PI {
+            err -= 2.0 * core::f32::consts::PI;
+        }
+        while err < -core::f32::consts::PI {
+            err += 2.0 * core::f32::consts::PI;
+        }
 
         self.err_history[self.idx] = err;
         self.idx = (self.idx + 1) % 10;
 
         // Spoofing = erro persistente > threshold_rad durante 10 amostras
-        let all_high = self.err_history.iter().all(|&e| e.abs() > self.threshold_rad);
-        if all_high { return true; }
+        let all_high = self
+            .err_history
+            .iter()
+            .all(|&e| e.abs() > self.threshold_rad);
+        if all_high {
+            return true;
+        }
 
         // Spoofing abrupto = spike unico > spike_threshold
         if err.abs() > self.spike_threshold_rad {
             self.spike_count += 1;
-            if self.spike_count >= 50 { return true; } // 0.5s a 100Hz
+            if self.spike_count >= 50 {
+                return true;
+            } // 0.5s a 100Hz
         } else {
             self.spike_count = self.spike_count.saturating_sub(1);
         }
@@ -307,7 +321,11 @@ mod tests_spoofing {
             let err = (i as f32) * 0.001;
             let detected = d.update(err, 0.0);
             // Nao deve detetar (drift lento, nao e spoofing)
-            assert!(!detected, "drift lento detetado como spoofing no iter {}", i);
+            assert!(
+                !detected,
+                "drift lento detetado como spoofing no iter {}",
+                i
+            );
         }
     }
 
@@ -315,11 +333,16 @@ mod tests_spoofing {
     fn abrupt_spoofing_detected() {
         let mut d = SpoofingDetector::new();
         // Baseline alinhado
-        for _ in 0..20 { d.update(0.0, 0.0); }
+        for _ in 0..20 {
+            d.update(0.0, 0.0);
+        }
         // Ataque abrupto +90 graus mantido
         let mut detected = false;
         for _ in 0..100 {
-            if d.update(1.57, 0.0) { detected = true; break; }
+            if d.update(1.57, 0.0) {
+                detected = true;
+                break;
+            }
         }
         assert!(detected, "spoofing +90 nao detetado");
     }
@@ -328,7 +351,9 @@ mod tests_spoofing {
     fn brief_spike_not_immediate() {
         let mut d = SpoofingDetector::new();
         // Alinhado com spike unico
-        for _ in 0..20 { d.update(0.0, 0.0); }
+        for _ in 0..20 {
+            d.update(0.0, 0.0);
+        }
         // Spike unico nao deve disparar imediatamente (spike_count < 50)
         assert!(!d.update(1.57, 0.0));
     }
@@ -357,7 +382,7 @@ pub struct SensorVoter {
 
 impl SensorVoter {
     pub fn new() -> Self {
-        Self { threshold: 5.0 }  // 5% divergencia = outlier
+        Self { threshold: 5.0 } // 5% divergencia = outlier
     }
 
     pub fn vote(&self, s1: f32, s2: f32, s3: f32) -> VotedValue {
@@ -372,14 +397,38 @@ impl SensorVoter {
         let close23 = d23 < thresh;
 
         match (close12, close13, close23) {
-            (true, true, true) => VotedValue { value: mean, status: SensorStatus::AllHealthy },
-            (true, false, false) => VotedValue { value: (s1 + s2) / 2.0, status: SensorStatus::OneDegraded },
-            (false, true, false) => VotedValue { value: (s1 + s3) / 2.0, status: SensorStatus::OneDegraded },
-            (false, false, true) => VotedValue { value: (s2 + s3) / 2.0, status: SensorStatus::OneDegraded },
-            (true, true, false) => VotedValue { value: (s1 + s2) / 2.0, status: SensorStatus::OneDegraded },
-            (true, false, true) => VotedValue { value: (s1 + s3) / 2.0, status: SensorStatus::OneDegraded },
-            (false, true, true) => VotedValue { value: (s2 + s3) / 2.0, status: SensorStatus::OneDegraded },
-            (false, false, false) => VotedValue { value: mean, status: SensorStatus::TotalFailure },
+            (true, true, true) => VotedValue {
+                value: mean,
+                status: SensorStatus::AllHealthy,
+            },
+            (true, false, false) => VotedValue {
+                value: (s1 + s2) / 2.0,
+                status: SensorStatus::OneDegraded,
+            },
+            (false, true, false) => VotedValue {
+                value: (s1 + s3) / 2.0,
+                status: SensorStatus::OneDegraded,
+            },
+            (false, false, true) => VotedValue {
+                value: (s2 + s3) / 2.0,
+                status: SensorStatus::OneDegraded,
+            },
+            (true, true, false) => VotedValue {
+                value: (s1 + s2) / 2.0,
+                status: SensorStatus::OneDegraded,
+            },
+            (true, false, true) => VotedValue {
+                value: (s1 + s3) / 2.0,
+                status: SensorStatus::OneDegraded,
+            },
+            (false, true, true) => VotedValue {
+                value: (s2 + s3) / 2.0,
+                status: SensorStatus::OneDegraded,
+            },
+            (false, false, false) => VotedValue {
+                value: mean,
+                status: SensorStatus::TotalFailure,
+            },
         }
     }
 }
@@ -399,17 +448,24 @@ mod tests_voter {
     #[test]
     fn one_outlier_isolated() {
         let v = SensorVoter::new();
-        let r = v.vote(50.0, 50.1, 80.0);  // s3 Ã© outlier
+        let r = v.vote(50.0, 50.1, 80.0); // s3 Ã© outlier
         assert_eq!(r.status, SensorStatus::OneDegraded);
-        assert!((r.value - 50.05).abs() < 0.2, "value={} devia ser ~50", r.value);
+        assert!(
+            (r.value - 50.05).abs() < 0.2,
+            "value={} devia ser ~50",
+            r.value
+        );
     }
 
     #[test]
     fn two_vs_one_uses_majority() {
         let v = SensorVoter::new();
-        let r = v.vote(50.0, 70.0, 80.0);  // 1 perto de 2? Nao, todos separados
-        // Todos separados > 5% â†’ TotalFailure OU TwoDisagree
-        assert!(matches!(r.status, SensorStatus::TotalFailure | SensorStatus::OneDegraded));
+        let r = v.vote(50.0, 70.0, 80.0); // 1 perto de 2? Nao, todos separados
+                                          // Todos separados > 5% â†’ TotalFailure OU TwoDisagree
+        assert!(matches!(
+            r.status,
+            SensorStatus::TotalFailure | SensorStatus::OneDegraded
+        ));
     }
 
     #[test]
@@ -425,7 +481,12 @@ mod tests_voter {
         for i in 0..100 {
             let base = 50.0 + i as f32 * 0.01;
             let r = v.vote(base, base + 0.1, base - 0.1);
-            assert_eq!(r.status, SensorStatus::AllHealthy, "drift devia ser AllHealthy, iter={}", i);
+            assert_eq!(
+                r.status,
+                SensorStatus::AllHealthy,
+                "drift devia ser AllHealthy, iter={}",
+                i
+            );
         }
     }
 }
@@ -444,10 +505,16 @@ mod tests_layered_defense {
         let r = v.vote(50.0, 65.0, 65.0);
 
         // Voter comprometido: escolhe os 2 spoofed (maioria falsa)
-        assert_eq!(r.status, SensorStatus::OneDegraded,
-            "Voter isola a minoria (sensor real) - LIMITACAO do 2-of-3 sem temporal analysis");
-        assert!((r.value - 65.0).abs() < 1.0,
-            "Voter usa valor spoofed {} (devia ser 50, mas e limitacao conhecida)", r.value);
+        assert_eq!(
+            r.status,
+            SensorStatus::OneDegraded,
+            "Voter isola a minoria (sensor real) - LIMITACAO do 2-of-3 sem temporal analysis"
+        );
+        assert!(
+            (r.value - 65.0).abs() < 1.0,
+            "Voter usa valor spoofed {} (devia ser 50, mas e limitacao conhecida)",
+            r.value
+        );
 
         // Defesa em camadas: SpoofingDetector usa gyro (nao-mag) para verificar
         let mut sd = SpoofingDetector::new();
@@ -455,7 +522,10 @@ mod tests_layered_defense {
         let spoofed_yaw = 0.52; // +30 graus
         let mut detected = false;
         for _ in 0..200 {
-            if sd.update(spoofed_yaw, gyro_yaw) { detected = true; break; }
+            if sd.update(spoofed_yaw, gyro_yaw) {
+                detected = true;
+                break;
+            }
         }
         assert!(detected,
             "SpoofingDetector DEVE detetar mesmo com SensorVoter comprometido - defesa em profundidade");
@@ -467,8 +537,11 @@ mod tests_layered_defense {
         let v = SensorVoter::new();
         // mag1=50 (real), mag2=100 (outlier aleatorio), mag3=150 (outlier aleatorio)
         let r = v.vote(50.0, 100.0, 150.0);
-        assert_eq!(r.status, SensorStatus::TotalFailure,
-            "Sem concordancia entre spoofed, voter declara TotalFailure");
+        assert_eq!(
+            r.status,
+            SensorStatus::TotalFailure,
+            "Sem concordancia entre spoofed, voter declara TotalFailure"
+        );
     }
 }
 // ==================== ZOMBIE DETECTOR ====================

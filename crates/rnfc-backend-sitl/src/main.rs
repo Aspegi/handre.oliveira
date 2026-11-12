@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
 // Autor: Andre Oliveira <handre.oliveira@gmail.com>
 // Projeto: RNFC - Resilient Navigation & Flight Control
 // Licenca: Proprietaria (ver LICENSE)
@@ -14,13 +14,16 @@
 // ULTRA ZENITE - Missao Composta + DAA Dinamico
 use rnfc_abstractions::{GnssFix, ImuSample};
 use rnfc_core::attitude_controller::AttitudeController;
-use rnfc_core::fusion_mag::FusionMag;
 use rnfc_core::attitude_estimator::AttitudeEstimator;
+use rnfc_core::fusion_mag::FusionMag;
 use rnfc_core::NavCore;
 use rnfc_daa::trajectory::Trajectory;
 use rnfc_daa::{plan_astar, LidarSim, Obstacle, OccupancyGrid};
+use rnfc_fdir::{
+    Failsafe, FailsafeAction, FailsafeTrigger, Health, SensorHealth, SensorStatus, SensorVoter,
+    SpoofingDetector,
+};
 use rnfc_mavlink::MavlinkSender;
-use rnfc_fdir::{SensorHealth, Failsafe, FailsafeAction, FailsafeTrigger, SpoofingDetector, Health, SensorVoter, SensorStatus};
 use std::fs::File;
 use std::io::Write as IoWrite;
 
@@ -85,7 +88,7 @@ fn main() {
     );
 
     // === Parametros Ultra Zenite ===
-            let max_speed = 8.0_f32;
+    let max_speed = 8.0_f32;
     let max_pitch = 20.0_f32.to_radians();
     let a_lat_max = 3.0_f32;
     let lookahead_base = 4.0_f32;
@@ -395,12 +398,19 @@ fn main() {
             -9.81 * roll.sin() * pitch.cos() + noise_a,
             -9.81 * roll.cos() * pitch.cos() + noise_a,
         ];
-        let gyro_sim = [roll_rate + noise_g, pitch_rate + noise_g, yaw_rate + noise_g];
+        let gyro_sim = [
+            roll_rate + noise_g,
+            pitch_rate + noise_g,
+            yaw_rate + noise_g,
+        ];
         attitude_est.update(accel_sim, gyro_sim, dt);
         if i % 1000 == 0 && i > 0 {
             let er_deg = (attitude_est.roll - roll).to_degrees();
             let ep_deg = (attitude_est.pitch - pitch).to_degrees();
-            println!("    [EST] t={:.1}s | err_roll={:+.2}deg | err_pitch={:+.2}deg", t, er_deg, ep_deg);
+            println!(
+                "    [EST] t={:.1}s | err_roll={:+.2}deg | err_pitch={:+.2}deg",
+                t, er_deg, ep_deg
+            );
         }
 
         // === Passo 9: simulacao magnetometro + fusao (diagnostico) ===
@@ -412,40 +422,76 @@ fn main() {
         let mag1_stuck = t >= 200.0 && t < 210.0;
         let base_n = MAG_NORM * yaw.cos();
         let base_e = MAG_NORM * yaw.sin();
-        let (mag1_n, mag1_e) = if mag1_stuck { (50.0, 0.0) } else { (base_n, base_e) };
+        let (mag1_n, mag1_e) = if mag1_stuck {
+            (50.0, 0.0)
+        } else {
+            (base_n, base_e)
+        };
         let (mag2_n, mag2_e) = (base_n + 1.0, base_e - 1.0);
         let (mag3_n, mag3_e) = if mag3_attacked {
             let spoof = yaw + 0.5236;
             (MAG_NORM * spoof.cos(), MAG_NORM * spoof.sin())
-        } else { (base_n - 1.0, base_e + 1.0) };
+        } else {
+            (base_n - 1.0, base_e + 1.0)
+        };
         let vote_n = sensor_voter.vote(mag1_n, mag2_n, mag3_n);
         let vote_e = sensor_voter.vote(mag1_e, mag2_e, mag3_e);
         let voter_status = match (vote_n.status, vote_e.status) {
-            (SensorStatus::TotalFailure, _) | (_, SensorStatus::TotalFailure) => SensorStatus::TotalFailure,
-            (SensorStatus::OneDegraded, _) | (_, SensorStatus::OneDegraded) => SensorStatus::OneDegraded,
+            (SensorStatus::TotalFailure, _) | (_, SensorStatus::TotalFailure) => {
+                SensorStatus::TotalFailure
+            }
+            (SensorStatus::OneDegraded, _) | (_, SensorStatus::OneDegraded) => {
+                SensorStatus::OneDegraded
+            }
             _ => SensorStatus::AllHealthy,
         };
         let voter_degraded = matches!(voter_status, SensorStatus::OneDegraded);
         if voter_degraded && !voter_was_degraded && (t - voter_degraded_since) > 1.0 {
-            if mag3_attacked { println!("    *** FDIR: SensorVoter isolou mag3 (spoof) em t={:.1}s ***", t); }
-            else if mag1_stuck { println!("    *** FDIR: SensorVoter isolou mag1 (stuck) em t={:.1}s ***", t); }
+            if mag3_attacked {
+                println!(
+                    "    *** FDIR: SensorVoter isolou mag3 (spoof) em t={:.1}s ***",
+                    t
+                );
+            } else if mag1_stuck {
+                println!(
+                    "    *** FDIR: SensorVoter isolou mag1 (stuck) em t={:.1}s ***",
+                    t
+                );
+            }
         }
         voter_was_degraded = voter_degraded;
-        let mag_n = if matches!(voter_status, SensorStatus::OneDegraded) { vote_n.value } else { mag1_n };
-        let mag_e = if matches!(voter_status, SensorStatus::OneDegraded) { vote_e.value } else { mag1_e };
+        let mag_n = if matches!(voter_status, SensorStatus::OneDegraded) {
+            vote_n.value
+        } else {
+            mag1_n
+        };
+        let mag_e = if matches!(voter_status, SensorStatus::OneDegraded) {
+            vote_e.value
+        } else {
+            mag1_e
+        };
         let health = mag_health.update(mag_n);
         let mag_yaw_raw = mag_e.atan2(mag_n);
         let spoofing = spoofing_detector.update(mag_yaw_raw, yaw); // usa yaw true para eliminar bias drift
         battery_v -= 0.0084 * dt;
         let is_stuck = matches!(health, Health::Stuck | Health::Failed);
         let (fs_trigger, fs_action) = if spoofing && !is_stuck {
-            (FailsafeTrigger::SensorCritical, FailsafeAction::ReturnToLaunch)
+            (
+                FailsafeTrigger::SensorCritical,
+                FailsafeAction::ReturnToLaunch,
+            )
         } else {
             failsafe.evaluate([pos[0], pos[1]], battery_v, health)
         };
-        let fs_engage = matches!(fs_action, FailsafeAction::Hover | FailsafeAction::ReturnToLaunch | FailsafeAction::EmergencyLand);
+        let fs_engage = matches!(
+            fs_action,
+            FailsafeAction::Hover | FailsafeAction::ReturnToLaunch | FailsafeAction::EmergencyLand
+        );
         if fs_engage && !failsafe_active {
-            println!("    *** FDIR: {:?} -> {:?} em t={:.2}s (batt={:.1}V) ***", fs_trigger, fs_action, t, battery_v);
+            println!(
+                "    *** FDIR: {:?} -> {:?} em t={:.2}s (batt={:.1}V) ***",
+                fs_trigger, fs_action, t, battery_v
+            );
             failsafe_active = true;
             failsafe_t_start = t;
         }
@@ -454,7 +500,10 @@ fn main() {
         if failsafe_active && t - failsafe_t_start > 5.0 && (t - failsafe_t_start) < 5.02 {
             // So log "persistente" uma vez
             if (t - failsafe_t_start) < 5.02 {
-                println!("    *** FDIR: failsafe persistente (durou {:.1}s) ***", t - failsafe_t_start);
+                println!(
+                    "    *** FDIR: failsafe persistente (durou {:.1}s) ***",
+                    t - failsafe_t_start
+                );
             }
         }
         fusion_mag.update(mag_n, mag_e, yaw_rate + GYRO_BIAS, dt);
@@ -531,17 +580,19 @@ fn main() {
         if failsafe_active {
             match fs_action {
                 FailsafeAction::Hover | FailsafeAction::EmergencyLand => {
-                    vel_n = 0.0; vel_e = 0.0;
+                    vel_n = 0.0;
+                    vel_e = 0.0;
                 }
                 FailsafeAction::ReturnToLaunch => {
                     let dx = -pos[0];
                     let dy = -pos[1];
-                    let d = (dx*dx + dy*dy).sqrt().max(0.1);
+                    let d = (dx * dx + dy * dy).sqrt().max(0.1);
                     if d > 2.0 {
                         vel_n = 8.0 * dx / d;
                         vel_e = 8.0 * dy / d;
                     } else {
-                        vel_n = 0.0; vel_e = 0.0;
+                        vel_n = 0.0;
+                        vel_e = 0.0;
                     }
                 }
                 _ => {}
@@ -661,24 +712,3 @@ fn main() {
         println!("\nOK: Passo 9 - missao composta + DAA dinamico concluidos.");
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

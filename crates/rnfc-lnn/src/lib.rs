@@ -1,4 +1,4 @@
-﻿#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_std)]
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::new_without_default)]
 //! Liquid Neural Network (LNN) for Fault-Tolerant Control.
@@ -65,7 +65,11 @@ impl<const IN: usize, const HID: usize, const OUT: usize> LiquidNetwork<IN, HID,
                 pre_activation += self.w_rec[i][j] * self.state[j];
             }
             // ODE: dx/dt = -state/tau + tanh(pre_activation)
-            let tau_safe = if self.tau[i].abs() < 0.01 { 0.01 } else { self.tau[i] };
+            let tau_safe = if self.tau[i].abs() < 0.01 {
+                0.01
+            } else {
+                self.tau[i]
+            };
             dx[i] = -self.state[i] / tau_safe + tanhf(pre_activation);
         }
 
@@ -73,8 +77,12 @@ impl<const IN: usize, const HID: usize, const OUT: usize> LiquidNetwork<IN, HID,
         for i in 0..HID {
             self.state[i] += dx[i] * dt;
             // Clamp para estabilidade numerica
-            if self.state[i] > 10.0 { self.state[i] = 10.0; }
-            if self.state[i] < -10.0 { self.state[i] = -10.0; }
+            if self.state[i] > 10.0 {
+                self.state[i] = 10.0;
+            }
+            if self.state[i] < -10.0 {
+                self.state[i] = -10.0;
+            }
         }
 
         // 3. Output: w_out · state + b_out
@@ -96,7 +104,7 @@ impl<const IN: usize, const HID: usize, const OUT: usize> LiquidNetwork<IN, HID,
             + HID             // b_hidden
             + HID * OUT       // w_out
             + OUT             // b_out
-            + HID             // tau
+            + HID // tau
     }
 
     /// Flatten para vector (util para evolucao genetica).
@@ -116,15 +124,24 @@ impl<const IN: usize, const HID: usize, const OUT: usize> LiquidNetwork<IN, HID,
                 idx += 1;
             }
         }
-        for i in 0..HID { v[idx] = self.b_hidden[i]; idx += 1; }
+        for i in 0..HID {
+            v[idx] = self.b_hidden[i];
+            idx += 1;
+        }
         for k in 0..OUT {
             for j in 0..HID {
                 v[idx] = self.w_out[k][j];
                 idx += 1;
             }
         }
-        for k in 0..OUT { v[idx] = self.b_out[k]; idx += 1; }
-        for i in 0..HID { v[idx] = self.tau[i]; idx += 1; }
+        for k in 0..OUT {
+            v[idx] = self.b_out[k];
+            idx += 1;
+        }
+        for i in 0..HID {
+            v[idx] = self.tau[i];
+            idx += 1;
+        }
         v
     }
 
@@ -143,17 +160,23 @@ impl<const IN: usize, const HID: usize, const OUT: usize> LiquidNetwork<IN, HID,
                 idx += 1;
             }
         }
-        for i in 0..HID { self.b_hidden[i] = v[idx]; idx += 1; }
+        for i in 0..HID {
+            self.b_hidden[i] = v[idx];
+            idx += 1;
+        }
         for k in 0..OUT {
             for j in 0..HID {
                 self.w_out[k][j] = v[idx];
                 idx += 1;
             }
         }
-        for k in 0..OUT { self.b_out[k] = v[idx]; idx += 1; }
-        for i in 0..HID { 
-            self.tau[i] = v[idx].abs().max(0.05);  // tau positivo
-            idx += 1; 
+        for k in 0..OUT {
+            self.b_out[k] = v[idx];
+            idx += 1;
+        }
+        for i in 0..HID {
+            self.tau[i] = v[idx].abs().max(0.05); // tau positivo
+            idx += 1;
         }
     }
 }
@@ -180,7 +203,9 @@ mod tests {
     #[test]
     fn forward_step_no_nan_extreme() {
         let mut net = LiquidNetwork::<5, 8, 2>::zeros();
-        for i in 0..8 { net.tau[i] = 0.5; }
+        for i in 0..8 {
+            net.tau[i] = 0.5;
+        }
         // Inputs extremos
         let cases = [
             [0.0, 0.0, 0.0, 0.0, 0.0],
@@ -199,7 +224,7 @@ mod tests {
     #[test]
     fn forward_step_state_evolves() {
         let mut net = LiquidNetwork::<5, 8, 2>::zeros();
-        net.w_in[0][0] = 1.0;  // neuronio 0 responde a input[0]
+        net.w_in[0][0] = 1.0; // neuronio 0 responde a input[0]
         let input = [1.0, 0.0, 0.0, 0.0, 0.0];
         let initial_state = net.state[0];
         for _ in 0..50 {
@@ -255,6 +280,3 @@ mod tests {
         assert_eq!(LiquidNetwork::<5, 8, 2>::param_count(), 138);
     }
 }
-
-
-

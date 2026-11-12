@@ -1,4 +1,4 @@
-﻿//! Counterfactual Safety Reasoning (CSR) for RNFC.
+//! Counterfactual Safety Reasoning (CSR) for RNFC.
 //!
 //! Post-mission, answers "what if?" questions with cryptographic proofs
 //! bound to the CertChain. Example: "If wind had been 2x, the drone
@@ -16,7 +16,11 @@ pub struct TrajectorySample {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Modification { WindScale, AltitudeOffset, None }
+pub enum Modification {
+    WindScale,
+    AltitudeOffset,
+    None,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Outcome {
@@ -43,10 +47,16 @@ pub struct CounterfactualProof {
     pub proof_hash: u64,
 }
 
-pub struct CounterfactualEngine { pub waypoint_tolerance_m: f32 }
+pub struct CounterfactualEngine {
+    pub waypoint_tolerance_m: f32,
+}
 
 impl CounterfactualEngine {
-    pub fn new() -> Self { Self { waypoint_tolerance_m: 2.0 } }
+    pub fn new() -> Self {
+        Self {
+            waypoint_tolerance_m: 2.0,
+        }
+    }
 
     pub fn what_if_wind(
         &self,
@@ -62,7 +72,10 @@ impl CounterfactualEngine {
             drift[0] += (scale - 1.0) * traj[i].wind[0] * dt;
             drift[1] += (scale - 1.0) * traj[i].wind[1] * dt;
         }
-        let cf_err = dist([actual_final[0] + drift[0], actual_final[1] + drift[1]], target);
+        let cf_err = dist(
+            [actual_final[0] + drift[0], actual_final[1] + drift[1]],
+            target,
+        );
         CounterfactualResult {
             scenario: format!("wind_x{:.1}", scale),
             modification: Modification::WindScale,
@@ -82,14 +95,24 @@ impl CounterfactualEngine {
         let mut max_alt = f32::NEG_INFINITY;
         for s in traj {
             let a = s.altitude + offset_m;
-            if a < min_alt { min_alt = a; }
-            if a > max_alt { max_alt = a; }
+            if a < min_alt {
+                min_alt = a;
+            }
+            if a > max_alt {
+                max_alt = a;
+            }
         }
         let outcome = if min_alt < 0.5 {
-            Outcome::Failed { reason: format!("altitude {:.2}m < 0.5m", min_alt) }
+            Outcome::Failed {
+                reason: format!("altitude {:.2}m < 0.5m", min_alt),
+            }
         } else if max_alt > 120.0 {
-            Outcome::Failed { reason: format!("altitude {:.1}m > 120m", max_alt) }
-        } else { Outcome::SameAsActual };
+            Outcome::Failed {
+                reason: format!("altitude {:.1}m > 120m", max_alt),
+            }
+        } else {
+            Outcome::SameAsActual
+        };
         CounterfactualResult {
             scenario: format!("altitude_{:+.1}m", offset_m),
             modification: Modification::AltitudeOffset,
@@ -113,9 +136,18 @@ impl CounterfactualEngine {
         }
     }
 
-    pub fn verify(&self, p: &CounterfactualProof, chain: &CertChain, r: &CounterfactualResult) -> bool {
-        if chain_fingerprint(chain) != p.chain_root_hash { return false; }
-        if hash_result(r) != p.result_hash { return false; }
+    pub fn verify(
+        &self,
+        p: &CounterfactualProof,
+        chain: &CertChain,
+        r: &CounterfactualResult,
+    ) -> bool {
+        if chain_fingerprint(chain) != p.chain_root_hash {
+            return false;
+        }
+        if hash_result(r) != p.result_hash {
+            return false;
+        }
         let mut buf = Vec::new();
         buf.extend_from_slice(&p.chain_root_hash.to_le_bytes());
         buf.extend_from_slice(&p.result_hash.to_le_bytes());
@@ -127,11 +159,17 @@ fn classify(cf_err: f32, actual_err: f32, tol: f32) -> Outcome {
     if (cf_err - actual_err).abs() < 0.1 {
         Outcome::SameAsActual
     } else if cf_err > tol * 5.0 {
-        Outcome::Failed { reason: format!("err {:.2}m > {:.1}m", cf_err, tol * 5.0) }
+        Outcome::Failed {
+            reason: format!("err {:.2}m > {:.1}m", cf_err, tol * 5.0),
+        }
     } else if cf_err > actual_err + 0.1 {
-        Outcome::Worse { delta_m: cf_err - actual_err }
+        Outcome::Worse {
+            delta_m: cf_err - actual_err,
+        }
     } else {
-        Outcome::Better { improvement_m: actual_err - cf_err }
+        Outcome::Better {
+            improvement_m: actual_err - cf_err,
+        }
     }
 }
 
@@ -159,7 +197,10 @@ fn hash_result(r: &CounterfactualResult) -> u64 {
 
 fn fnv1a_64(bytes: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf29ce484222325;
-    for &b in bytes { h ^= b as u64; h = h.wrapping_mul(0x100000001b3); }
+    for &b in bytes {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
     h
 }
 
@@ -169,16 +210,18 @@ mod tests {
     use rnfc_certchain::{CertChain, SafetyState};
 
     fn traj() -> Vec<TrajectorySample> {
-        (0..=10).map(|i| {
-            let t = i as f32;
-            TrajectorySample {
-                t_s: t,
-                pos: [5.0 * t, 2.0 * t],
-                vel: [5.0, 0.0],
-                wind: [0.0, 2.0],
-                altitude: 10.0,
-            }
-        }).collect()
+        (0..=10)
+            .map(|i| {
+                let t = i as f32;
+                TrajectorySample {
+                    t_s: t,
+                    pos: [5.0 * t, 2.0 * t],
+                    vel: [5.0, 0.0],
+                    wind: [0.0, 2.0],
+                    altitude: 10.0,
+                }
+            })
+            .collect()
     }
 
     fn chain() -> CertChain {

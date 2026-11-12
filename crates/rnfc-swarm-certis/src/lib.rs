@@ -1,4 +1,4 @@
-﻿#![allow(clippy::new_without_default)]
+#![allow(clippy::new_without_default)]
 //! Swarm-CERTIS — Distributed Runtime Certification for UAV Swarms.
 //!
 //! Extensao do rnfc-certis para enxames. Cada drone mantem uma hash chain local
@@ -46,7 +46,7 @@ fn fnv1a_64(data: &[u8]) -> u64 {
 pub struct DistributedCertisRecorder {
     pub drone_id: u8,
     pub local_events: Vec<SwarmSafetyEvent>,
-    pub peers: HashMap<u8, u64>,     // peer_id -> last seen global hash
+    pub peers: HashMap<u8, u64>, // peer_id -> last seen global hash
     pub mission_id: String,
 }
 
@@ -84,13 +84,17 @@ impl DistributedCertisRecorder {
     pub fn verify_local_chain(&self) -> bool {
         let mut prev = 0u64;
         for e in &self.local_events {
-            if e.prev_hash != prev { return false; }
+            if e.prev_hash != prev {
+                return false;
+            }
             let mut buf = Vec::new();
             buf.extend_from_slice(&[e.drone_id]);
             buf.extend_from_slice(&e.timestamp_s.to_le_bytes());
             buf.extend_from_slice(format!("{:?}", e.kind).as_bytes());
             buf.extend_from_slice(&e.prev_hash.to_le_bytes());
-            if fnv1a_64(&buf) != e.hash { return false; }
+            if fnv1a_64(&buf) != e.hash {
+                return false;
+            }
             prev = e.hash;
         }
         true
@@ -162,8 +166,17 @@ mod tests {
     fn record_multiple_events_chain_valid() {
         let mut r = DistributedCertisRecorder::new(2, "m");
         r.record(1.0, SwarmSafetyEventKind::Heartbeat { battery_pct: 95 });
-        r.record(2.0, SwarmSafetyEventKind::DroneCollisionAvoided { other_id: 1, min_dist_m: 3.5 });
-        r.record(3.0, SwarmSafetyEventKind::SwarmCohesionLost { distance_m: 45.0 });
+        r.record(
+            2.0,
+            SwarmSafetyEventKind::DroneCollisionAvoided {
+                other_id: 1,
+                min_dist_m: 3.5,
+            },
+        );
+        r.record(
+            3.0,
+            SwarmSafetyEventKind::SwarmCohesionLost { distance_m: 45.0 },
+        );
         assert!(r.verify_local_chain());
         assert_eq!(r.local_events.len(), 3);
     }
@@ -248,18 +261,19 @@ mod tests {
     }
 }
 
-
 // ============ SWARM SAFETY CASE ============
 // Fase 2: gera GSN + FMEA + FTA de enxame a partir de multiplos DistributedCertisRecorder.
 
-use rnfc_certis::{FaultNode, FmeaEntry, GsnNode, fault_tree_to_json, fmea_to_markdown, gsn_to_markdown};
+use rnfc_certis::{
+    fault_tree_to_json, fmea_to_markdown, gsn_to_markdown, FaultNode, FmeaEntry, GsnNode,
+};
 
 /// Safety case distribuido do enxame.
 pub struct SwarmSafetyCase {
     pub mission_id: String,
     pub drone_count: usize,
     pub consensus_hash: u64,
-    pub all_drones_agree: bool,      // true se todos tem o mesmo consenso
+    pub all_drones_agree: bool, // true se todos tem o mesmo consenso
     pub swarm_fmea: Vec<FmeaEntry>,
     pub swarm_gsn: Vec<GsnNode>,
     pub swarm_fault_tree: FaultNode,
@@ -282,25 +296,33 @@ pub fn generate_swarm_fmea(recorders: &[DistributedCertisRecorder]) -> Vec<FmeaE
         FmeaEntry::new(
             "Intra-swarm collision",
             "Two drones on converging trajectory",
-            10, 3, 1,
+            10,
+            3,
+            1,
             "Collision avoidance protocol (predict 2s ahead)",
         ),
         FmeaEntry::new(
             "Swarm cohesion loss",
             "Drone drifts away from formation",
-            6, 4, 2,
+            6,
+            4,
+            2,
             "Formation control + consensus",
         ),
         FmeaEntry::new(
             "Comm mesh degradation",
             "Packet loss in inter-drone radio link",
-            7, 5, 2,
+            7,
+            5,
+            2,
             "Fallback to autonomous navigation",
         ),
         FmeaEntry::new(
             "Consensus split-brain",
             "Distributed state diverges between drones",
-            8, 2, 3,
+            8,
+            2,
+            3,
             "Last-write-wins + global hash verification",
         ),
     ];
@@ -352,7 +374,8 @@ pub fn generate_swarm_gsn(recorders: &[DistributedCertisRecorder]) -> Vec<GsnNod
             id: "SSn1.1".into(),
             text: format!(
                 "{} drones, {} safety events logged across swarm",
-                recorders.len(), total_events
+                recorders.len(),
+                total_events
             ),
         },
         GsnNode::Goal {
@@ -364,8 +387,11 @@ pub fn generate_swarm_gsn(recorders: &[DistributedCertisRecorder]) -> Vec<GsnNod
     if all_agree {
         gsn.push(GsnNode::Solution {
             id: "SSn1.2".into(),
-            text: format!("All {} drones agree on consensus hash {:#018x}",
-                recorders.len(), recorders.first().map(|r| r.global_consensus()).unwrap_or(0)),
+            text: format!(
+                "All {} drones agree on consensus hash {:#018x}",
+                recorders.len(),
+                recorders.first().map(|r| r.global_consensus()).unwrap_or(0)
+            ),
         });
     } else {
         // Split-brain detectado - adicionar como falha na GSN
@@ -376,13 +402,17 @@ pub fn generate_swarm_gsn(recorders: &[DistributedCertisRecorder]) -> Vec<GsnNod
     }
 
     // Collision avoidance goal - so se ha eventos
-    let has_collision = recorders.iter().any(|r| r.local_events.iter().any(|e| {
-        matches!(e.kind, SwarmSafetyEventKind::DroneCollisionAvoided { .. })
-    }));
+    let has_collision = recorders.iter().any(|r| {
+        r.local_events
+            .iter()
+            .any(|e| matches!(e.kind, SwarmSafetyEventKind::DroneCollisionAvoided { .. }))
+    });
     if has_collision {
-        let count: usize = recorders.iter().flat_map(|r| &r.local_events).filter(|e| {
-            matches!(e.kind, SwarmSafetyEventKind::DroneCollisionAvoided { .. })
-        }).count();
+        let count: usize = recorders
+            .iter()
+            .flat_map(|r| &r.local_events)
+            .filter(|e| matches!(e.kind, SwarmSafetyEventKind::DroneCollisionAvoided { .. }))
+            .count();
         gsn.push(GsnNode::Goal {
             id: "SG1.3".into(),
             text: "Collision avoidance within swarm is functional".into(),
@@ -394,13 +424,17 @@ pub fn generate_swarm_gsn(recorders: &[DistributedCertisRecorder]) -> Vec<GsnNod
     }
 
     // Cohesion goal
-    let has_cohesion = recorders.iter().any(|r| r.local_events.iter().any(|e| {
-        matches!(e.kind, SwarmSafetyEventKind::SwarmCohesionLost { .. })
-    }));
+    let has_cohesion = recorders.iter().any(|r| {
+        r.local_events
+            .iter()
+            .any(|e| matches!(e.kind, SwarmSafetyEventKind::SwarmCohesionLost { .. }))
+    });
     if has_cohesion {
-        let count: usize = recorders.iter().flat_map(|r| &r.local_events).filter(|e| {
-            matches!(e.kind, SwarmSafetyEventKind::SwarmCohesionLost { .. })
-        }).count();
+        let count: usize = recorders
+            .iter()
+            .flat_map(|r| &r.local_events)
+            .filter(|e| matches!(e.kind, SwarmSafetyEventKind::SwarmCohesionLost { .. }))
+            .count();
         gsn.push(GsnNode::Goal {
             id: "SG1.4".into(),
             text: "Swarm cohesion is maintained".into(),
@@ -430,14 +464,17 @@ pub fn generate_swarm_fault_tree(recorders: &[DistributedCertisRecorder]) -> Fau
     }
 
     // Coordenacao de enxame
-    let coord_count: u32 = recorders.iter()
+    let coord_count: u32 = recorders
+        .iter()
         .flat_map(|r| &r.local_events)
-        .filter(|e| matches!(
-            e.kind,
-            SwarmSafetyEventKind::DroneCollisionAvoided { .. }
-                | SwarmSafetyEventKind::SwarmCohesionLost { .. }
-                | SwarmSafetyEventKind::CommMeshDegraded { .. }
-        ))
+        .filter(|e| {
+            matches!(
+                e.kind,
+                SwarmSafetyEventKind::DroneCollisionAvoided { .. }
+                    | SwarmSafetyEventKind::SwarmCohesionLost { .. }
+                    | SwarmSafetyEventKind::CommMeshDegraded { .. }
+            )
+        })
         .count() as u32;
 
     children.push(FaultNode {
@@ -455,7 +492,11 @@ pub fn generate_swarm_fault_tree(recorders: &[DistributedCertisRecorder]) -> Fau
         id: "SWARM_TOP".into(),
         description: format!(
             "Swarm mission {} ({} drones)",
-            recorders.first().map(|r| &r.mission_id).cloned().unwrap_or_default(),
+            recorders
+                .first()
+                .map(|r| &r.mission_id)
+                .cloned()
+                .unwrap_or_default(),
             recorders.len()
         ),
         event_count: total,
@@ -467,7 +508,8 @@ pub fn generate_swarm_fault_tree(recorders: &[DistributedCertisRecorder]) -> Fau
 impl SwarmSafetyCase {
     pub fn generate(recorders: &[DistributedCertisRecorder]) -> Self {
         let (consensus_hash, all_agree) = swarm_consensus(recorders);
-        let mission_id = recorders.first()
+        let mission_id = recorders
+            .first()
             .map(|r| r.mission_id.clone())
             .unwrap_or_else(|| "swarm_empty".into());
         Self {
@@ -483,12 +525,22 @@ impl SwarmSafetyCase {
 
     pub fn to_markdown(&self) -> String {
         let mut s = String::new();
-        s.push_str(&format!("# Swarm-CERTIS Safety Case — Mission {}\n\n", self.mission_id));
+        s.push_str(&format!(
+            "# Swarm-CERTIS Safety Case — Mission {}\n\n",
+            self.mission_id
+        ));
         s.push_str(&format!("**Drones:** {}\n\n", self.drone_count));
-        s.push_str(&format!("**Consensus hash:** `{:#018x}`\n\n", self.consensus_hash));
+        s.push_str(&format!(
+            "**Consensus hash:** `{:#018x}`\n\n",
+            self.consensus_hash
+        ));
         s.push_str(&format!(
             "**Consensus status:** {}\n\n",
-            if self.all_drones_agree { "ALL DRONES AGREE" } else { "SPLIT-BRAIN DETECTED" }
+            if self.all_drones_agree {
+                "ALL DRONES AGREE"
+            } else {
+                "SPLIT-BRAIN DETECTED"
+            }
         ));
         s.push_str("---\n\n## 1. GSN (Swarm Goal Structuring)\n\n");
         s.push_str(&gsn_to_markdown(&self.swarm_gsn, &self.mission_id));
@@ -508,13 +560,21 @@ mod tests_fase2 {
     use super::*;
 
     fn make_swarm(n: u8) -> Vec<DistributedCertisRecorder> {
-        (1..=n).map(|id| DistributedCertisRecorder::new(id, "swarm_test")).collect()
+        (1..=n)
+            .map(|id| DistributedCertisRecorder::new(id, "swarm_test"))
+            .collect()
     }
 
     fn sync_all(recorders: &mut [DistributedCertisRecorder]) {
         // Todos os drones trocam hash chains (full mesh)
-        let hashes: Vec<(u8, u64)> = recorders.iter()
-            .map(|r| (r.drone_id, r.local_events.last().map(|e| e.hash).unwrap_or(0)))
+        let hashes: Vec<(u8, u64)> = recorders
+            .iter()
+            .map(|r| {
+                (
+                    r.drone_id,
+                    r.local_events.last().map(|e| e.hash).unwrap_or(0),
+                )
+            })
             .collect();
         for r in recorders.iter_mut() {
             for &(id, h) in &hashes {
@@ -539,13 +599,34 @@ mod tests_fase2 {
     #[test]
     fn swarm_fmea_counts_events() {
         let mut r = make_swarm(2);
-        r[0].record(1.0, SwarmSafetyEventKind::DroneCollisionAvoided { other_id: 2, min_dist_m: 3.0 });
-        r[0].record(2.0, SwarmSafetyEventKind::DroneCollisionAvoided { other_id: 2, min_dist_m: 2.5 });
-        r[1].record(1.5, SwarmSafetyEventKind::SwarmCohesionLost { distance_m: 50.0 });
+        r[0].record(
+            1.0,
+            SwarmSafetyEventKind::DroneCollisionAvoided {
+                other_id: 2,
+                min_dist_m: 3.0,
+            },
+        );
+        r[0].record(
+            2.0,
+            SwarmSafetyEventKind::DroneCollisionAvoided {
+                other_id: 2,
+                min_dist_m: 2.5,
+            },
+        );
+        r[1].record(
+            1.5,
+            SwarmSafetyEventKind::SwarmCohesionLost { distance_m: 50.0 },
+        );
         let fmea = generate_swarm_fmea(&r);
-        let collision_entry = fmea.iter().find(|e| e.failure_mode.contains("collision")).unwrap();
+        let collision_entry = fmea
+            .iter()
+            .find(|e| e.failure_mode.contains("collision"))
+            .unwrap();
         assert_eq!(collision_entry.evidence_count, 2);
-        let cohesion_entry = fmea.iter().find(|e| e.failure_mode.contains("cohesion")).unwrap();
+        let cohesion_entry = fmea
+            .iter()
+            .find(|e| e.failure_mode.contains("cohesion"))
+            .unwrap();
         assert_eq!(cohesion_entry.evidence_count, 1);
     }
 
@@ -553,7 +634,9 @@ mod tests_fase2 {
     fn swarm_gsn_includes_consensus_goal() {
         let r = make_swarm(2);
         let gsn = generate_swarm_gsn(&r);
-        assert!(gsn.iter().any(|n| matches!(n, GsnNode::Goal { id, .. } if id == "SG1.2")));
+        assert!(gsn
+            .iter()
+            .any(|n| matches!(n, GsnNode::Goal { id, .. } if id == "SG1.2")));
     }
 
     #[test]
@@ -565,7 +648,10 @@ mod tests_fase2 {
         let (_, all_agree) = swarm_consensus(&r);
         assert!(!all_agree, "deveria ser split-brain sem sync");
         let gsn = generate_swarm_gsn(&r);
-        let consensus_solution = gsn.iter().find(|n| matches!(n, GsnNode::Solution { id, .. } if id == "SSn1.2")).unwrap();
+        let consensus_solution = gsn
+            .iter()
+            .find(|n| matches!(n, GsnNode::Solution { id, .. } if id == "SSn1.2"))
+            .unwrap();
         if let GsnNode::Solution { text, .. } = consensus_solution {
             assert!(text.contains("SPLIT-BRAIN"));
         }
@@ -575,7 +661,10 @@ mod tests_fase2 {
     fn swarm_gsn_coherent_after_sync() {
         let mut r = make_swarm(3);
         for (i, rec) in r.iter_mut().enumerate() {
-            rec.record(i as f32, SwarmSafetyEventKind::Heartbeat { battery_pct: 90 });
+            rec.record(
+                i as f32,
+                SwarmSafetyEventKind::Heartbeat { battery_pct: 90 },
+            );
         }
         sync_all(&mut r);
         let (_, all_agree) = swarm_consensus(&r);
@@ -585,16 +674,26 @@ mod tests_fase2 {
     #[test]
     fn swarm_gsn_collision_goal_if_events() {
         let mut r = make_swarm(2);
-        r[0].record(1.0, SwarmSafetyEventKind::DroneCollisionAvoided { other_id: 2, min_dist_m: 3.0 });
+        r[0].record(
+            1.0,
+            SwarmSafetyEventKind::DroneCollisionAvoided {
+                other_id: 2,
+                min_dist_m: 3.0,
+            },
+        );
         let gsn = generate_swarm_gsn(&r);
-        assert!(gsn.iter().any(|n| matches!(n, GsnNode::Goal { id, .. } if id == "SG1.3")));
+        assert!(gsn
+            .iter()
+            .any(|n| matches!(n, GsnNode::Goal { id, .. } if id == "SG1.3")));
     }
 
     #[test]
     fn swarm_gsn_no_collision_goal_if_no_events() {
         let r = make_swarm(2);
         let gsn = generate_swarm_gsn(&r);
-        assert!(!gsn.iter().any(|n| matches!(n, GsnNode::Goal { id, .. } if id == "SG1.3")));
+        assert!(!gsn
+            .iter()
+            .any(|n| matches!(n, GsnNode::Goal { id, .. } if id == "SG1.3")));
     }
 
     #[test]
@@ -602,7 +701,7 @@ mod tests_fase2 {
         let r = make_swarm(3);
         let tree = generate_swarm_fault_tree(&r);
         assert_eq!(tree.id, "SWARM_TOP");
-        assert_eq!(tree.children.len(), 4);  // 3 drones + swarm_coordination
+        assert_eq!(tree.children.len(), 4); // 3 drones + swarm_coordination
     }
 
     #[test]
@@ -611,28 +710,48 @@ mod tests_fase2 {
         let case = SwarmSafetyCase::generate(&r);
         assert_eq!(case.drone_count, 0);
         assert_eq!(case.consensus_hash, 0);
-        assert_eq!(case.swarm_fmea.len(), 4);  // still has 4 base modes
+        assert_eq!(case.swarm_fmea.len(), 4); // still has 4 base modes
     }
 
     #[test]
     fn swarm_safety_case_aggregates() {
         let mut r = make_swarm(3);
-        r[0].record(1.0, SwarmSafetyEventKind::DroneCollisionAvoided { other_id: 2, min_dist_m: 3.0 });
-        r[1].record(2.0, SwarmSafetyEventKind::SwarmCohesionLost { distance_m: 45.0 });
-        r[2].record(3.0, SwarmSafetyEventKind::CommMeshDegraded { packet_loss_pct: 15.0 });
+        r[0].record(
+            1.0,
+            SwarmSafetyEventKind::DroneCollisionAvoided {
+                other_id: 2,
+                min_dist_m: 3.0,
+            },
+        );
+        r[1].record(
+            2.0,
+            SwarmSafetyEventKind::SwarmCohesionLost { distance_m: 45.0 },
+        );
+        r[2].record(
+            3.0,
+            SwarmSafetyEventKind::CommMeshDegraded {
+                packet_loss_pct: 15.0,
+            },
+        );
         sync_all(&mut r);
         let case = SwarmSafetyCase::generate(&r);
         assert_eq!(case.drone_count, 3);
         assert!(case.all_drones_agree);
         assert_eq!(case.swarm_fmea.len(), 4);
-        assert!(case.swarm_gsn.len() >= 5);  // SG1, SS1, SG1.1, SSn1.1, SG1.2, SSn1.2, SG1.3, ...
+        assert!(case.swarm_gsn.len() >= 5); // SG1, SS1, SG1.1, SSn1.1, SG1.2, SSn1.2, SG1.3, ...
         assert_eq!(case.swarm_fault_tree.id, "SWARM_TOP");
     }
 
     #[test]
     fn swarm_safety_case_markdown() {
         let mut r = make_swarm(2);
-        r[0].record(1.0, SwarmSafetyEventKind::DroneCollisionAvoided { other_id: 2, min_dist_m: 2.5 });
+        r[0].record(
+            1.0,
+            SwarmSafetyEventKind::DroneCollisionAvoided {
+                other_id: 2,
+                min_dist_m: 2.5,
+            },
+        );
         sync_all(&mut r);
         let case = SwarmSafetyCase::generate(&r);
         let md = case.to_markdown();
@@ -643,4 +762,3 @@ mod tests_fase2 {
         assert!(md.contains("SWARM_TOP"));
     }
 }
-

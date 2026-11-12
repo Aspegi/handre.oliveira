@@ -1,4 +1,4 @@
-﻿#![allow(clippy::new_without_default)]
+#![allow(clippy::new_without_default)]
 //! CertChain — Self-Sovereign Safety Case via Lightweight Blockchain.
 //!
 //! Cada drone mantem um ledger local (hash chain de SafetyBlocks). Cada bloco
@@ -19,7 +19,7 @@ pub enum SafetyState {
     FdirActive,
     LnnRecovery,
     FailsafeTriggered,
-    QuantumNav,  // navegacao via MagNav (GPS-denied)
+    QuantumNav, // navegacao via MagNav (GPS-denied)
 }
 
 impl SafetyState {
@@ -94,13 +94,19 @@ impl SafetyBlock {
             return false;
         }
         let expected_proof = compute_proof(
-            self.event_count, self.event_hash, self.safety_state, self.prev_hash,
+            self.event_count,
+            self.event_hash,
+            self.safety_state,
+            self.prev_hash,
         );
         if self.safety_proof != expected_proof {
             return false;
         }
         let expected_hash = compute_hash(
-            self.index, self.timestamp_s, self.safety_proof, self.prev_hash,
+            self.index,
+            self.timestamp_s,
+            self.safety_proof,
+            self.prev_hash,
         );
         if self.hash != expected_hash {
             return false;
@@ -161,7 +167,14 @@ impl CertChain {
     ) -> Result<u64, ChainError> {
         let prev_hash = self.blocks.last().map(|b| b.hash).unwrap_or(0);
         let index = self.blocks.len() as u64;
-        let block = SafetyBlock::new(index, timestamp_s, event_count, event_hash, safety_state, prev_hash)?;
+        let block = SafetyBlock::new(
+            index,
+            timestamp_s,
+            event_count,
+            event_hash,
+            safety_state,
+            prev_hash,
+        )?;
         let hash = block.hash;
         self.blocks.push(block);
         Ok(hash)
@@ -191,7 +204,10 @@ impl CertChain {
     }
 
     pub fn last_state(&self) -> SafetyState {
-        self.blocks.last().map(|b| b.safety_state).unwrap_or(SafetyState::Nominal)
+        self.blocks
+            .last()
+            .map(|b| b.safety_state)
+            .unwrap_or(SafetyState::Nominal)
     }
 }
 
@@ -239,11 +255,14 @@ impl CertChainNode {
         match self.peers.get(&peer_id) {
             Some(rec) if rec.last_known_hash == new_hash => SyncResult::AlreadyKnown,
             _ => {
-                self.peers.insert(peer_id, PeerRecord {
+                self.peers.insert(
                     peer_id,
-                    last_known_hash: new_hash,
-                    last_known_index: new_index,
-                });
+                    PeerRecord {
+                        peer_id,
+                        last_known_hash: new_hash,
+                        last_known_index: new_index,
+                    },
+                );
                 SyncResult::Accepted
             }
         }
@@ -255,7 +274,9 @@ impl CertChainNode {
 
     /// Hash agregado de todos os peers (para consenso global do enxame).
     pub fn swarm_consensus(&self) -> u64 {
-        let mut all: Vec<(u8, u64)> = self.peers.iter()
+        let mut all: Vec<(u8, u64)> = self
+            .peers
+            .iter()
             .map(|(k, v)| (*k, v.last_known_hash))
             .collect();
         all.push((self.chain.drone_id, self.chain.root_hash()));
@@ -333,7 +354,8 @@ mod tests {
     fn peer_accepts_valid_chain() {
         let mut peer = CertChain::new(2, "m");
         peer.append(1.0, 2, 0x1111, SafetyState::Nominal).unwrap();
-        peer.append(2.0, 1, 0x2222, SafetyState::FdirActive).unwrap();
+        peer.append(2.0, 1, 0x2222, SafetyState::FdirActive)
+            .unwrap();
 
         let mut node = CertChainNode::new(1, "m");
         assert_eq!(node.accept_peer_chain(&peer), SyncResult::Accepted);
@@ -345,7 +367,7 @@ mod tests {
         let mut peer = CertChain::new(2, "m");
         peer.append(1.0, 2, 0x1111, SafetyState::Nominal).unwrap();
         peer.append(2.0, 1, 0x2222, SafetyState::Nominal).unwrap();
-        peer.blocks[0].event_hash ^= 0xFF;  // tamper
+        peer.blocks[0].event_hash ^= 0xFF; // tamper
 
         let mut node = CertChainNode::new(1, "m");
         let result = node.accept_peer_chain(&peer);
@@ -366,17 +388,23 @@ mod tests {
     #[test]
     fn swarm_consensus_converges() {
         // 3 drones, cada um aceita as chains dos outros dois
-        let mut chains: Vec<CertChain> = (1..=3).map(|id| {
-            let mut c = CertChain::new(id, "m");
-            c.append(1.0, 2, 0x1000 + id as u64, SafetyState::Nominal).unwrap();
-            c
-        }).collect();
+        let mut chains: Vec<CertChain> = (1..=3)
+            .map(|id| {
+                let mut c = CertChain::new(id, "m");
+                c.append(1.0, 2, 0x1000 + id as u64, SafetyState::Nominal)
+                    .unwrap();
+                c
+            })
+            .collect();
 
-        let mut nodes: Vec<CertChainNode> = chains.iter().map(|c| {
-            let mut node = CertChainNode::new(c.drone_id, "m");
-            node.chain = c.clone();
-            node
-        }).collect();
+        let mut nodes: Vec<CertChainNode> = chains
+            .iter()
+            .map(|c| {
+                let mut node = CertChainNode::new(c.drone_id, "m");
+                node.chain = c.clone();
+                node
+            })
+            .collect();
 
         // Cada node aceita os outros dois
         for i in 0..3 {
@@ -397,7 +425,9 @@ mod tests {
 
     // Suprimir warnings de unused
     #[allow(dead_code)]
-    fn _ensure_clone(c: &CertChain) -> CertChain { c.clone() }
+    fn _ensure_clone(c: &CertChain) -> CertChain {
+        c.clone()
+    }
 }
 
 impl Clone for CertChain {
@@ -416,7 +446,7 @@ impl Clone for CertChain {
 /// Bundle de certificacao: tudo o que um regulador precisa para verificar.
 #[derive(Clone, Debug)]
 pub struct CertificateBundle {
-    pub schema_version: u8,       // versao do formato (1)
+    pub schema_version: u8, // versao do formato (1)
     pub drone_id: u8,
     pub mission_id: String,
     pub block_count: usize,
@@ -454,7 +484,12 @@ pub fn export_bundle(chain: &CertChain) -> CertificateBundle {
     for (i, b) in chain.blocks.iter().enumerate() {
         json.push_str(&format!(
             "    {{\"i\":{},\"t\":{:.3},\"ev\":{},\"st\":{},\"h\":{},\"p\":{}}}{}\n",
-            b.index, b.timestamp_s, b.event_count, b.safety_state.as_u8(), b.hash, b.prev_hash,
+            b.index,
+            b.timestamp_s,
+            b.event_count,
+            b.safety_state.as_u8(),
+            b.hash,
+            b.prev_hash,
             if i < block_count - 1 { "," } else { "" }
         ));
     }
@@ -565,7 +600,13 @@ mod tests_fase2 {
     fn bundle_json_complete() {
         let c = make_chain_5_blocks();
         let b = export_bundle(&c);
-        for field in &["schema_version", "drone_id", "root_hash", "blocks", "mission_id"] {
+        for field in &[
+            "schema_version",
+            "drone_id",
+            "root_hash",
+            "blocks",
+            "mission_id",
+        ] {
             assert!(b.json.contains(field), "json missing {}", field);
         }
         // Contar linhas de bloco
@@ -623,7 +664,7 @@ mod tests_fase2 {
     fn regulator_rejects_corrupted_json() {
         let c = make_chain_5_blocks();
         let mut b = export_bundle(&c);
-        b.json = "{}".into();  // Remove todos os campos
+        b.json = "{}".into(); // Remove todos os campos
         let v = verify_bundle(&b);
         assert!(matches!(v, RegulatorVerdict::Fail { .. }));
     }
@@ -635,8 +676,15 @@ mod tests_fase2 {
         let b2 = export_bundle(&c);
         let v1 = verify_bundle(&b1);
         let v2 = verify_bundle(&b2);
-        if let (RegulatorVerdict::Pass { bundle_hash: h1, .. },
-                RegulatorVerdict::Pass { bundle_hash: h2, .. }) = (v1, v2) {
+        if let (
+            RegulatorVerdict::Pass {
+                bundle_hash: h1, ..
+            },
+            RegulatorVerdict::Pass {
+                bundle_hash: h2, ..
+            },
+        ) = (v1, v2)
+        {
             assert_eq!(h1, h2);
         } else {
             panic!("both should PASS");
@@ -649,7 +697,9 @@ mod tests_fase2 {
         let mut chain = CertChain::new(42, "easa_demo");
         chain.append(1.0, 2, 0xAA, SafetyState::Nominal).unwrap();
         chain.append(2.0, 1, 0xBB, SafetyState::FdirActive).unwrap();
-        chain.append(3.0, 2, 0xCC, SafetyState::LnnRecovery).unwrap();
+        chain
+            .append(3.0, 2, 0xCC, SafetyState::LnnRecovery)
+            .unwrap();
         chain.append(4.0, 1, 0xDD, SafetyState::Nominal).unwrap();
 
         // 2. Operador exporta bundle
@@ -663,14 +713,13 @@ mod tests_fase2 {
     }
 }
 
-
 // ============ QUANTUM NAV PROOF (Fase 2 AEGIS-Swarm) ============
 /// Proof de navegacao quantica: hash das leituras MagNav + posicao estimada.
 #[derive(Clone, Copy, Debug)]
 pub struct QuantumNavProof {
-    pub reading_hash: u64,        // hash das leituras do sensor (uT)
-    pub position: [f32; 2],       // posicao estimada via MagNav
-    pub proof_hash: u64,          // hash final do proof
+    pub reading_hash: u64,  // hash das leituras do sensor (uT)
+    pub position: [f32; 2], // posicao estimada via MagNav
+    pub proof_hash: u64,    // hash final do proof
 }
 
 impl QuantumNavProof {
@@ -686,7 +735,11 @@ impl QuantumNavProof {
         buf.extend_from_slice(&position[1].to_le_bytes());
         buf.extend_from_slice(&timestamp_s.to_le_bytes());
         let proof_hash = fnv1a_64(&buf);
-        Self { reading_hash, position, proof_hash }
+        Self {
+            reading_hash,
+            position,
+            proof_hash,
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-﻿//! Watch — motion detection with zoom, photo capture, and anomaly reports.
+//! Watch — motion detection with zoom, photo capture, and anomaly reports.
 //!
 //! When external movement is detected in the camera frame, the drone:
 //! 1. Narrows FOV (120° -> 30°) on the detected sector
@@ -26,7 +26,10 @@ pub struct MotionDetector {
 
 impl MotionDetector {
     pub fn new(threshold: f32) -> Self {
-        Self { threshold, last_frame: None }
+        Self {
+            threshold,
+            last_frame: None,
+        }
     }
 
     pub fn detect(&mut self, frame: &[u8]) -> Option<f32> {
@@ -38,7 +41,9 @@ impl MotionDetector {
                 }
                 let avg = diff as f32 / frame.len() as f32;
                 self.last_frame = Some(frame.to_vec());
-                if avg > self.threshold { return Some(avg); }
+                if avg > self.threshold {
+                    return Some(avg);
+                }
                 return None;
             }
         }
@@ -76,7 +81,11 @@ impl ZoomController {
     }
 
     pub fn current_fov_deg(&self) -> f32 {
-        if self.active { self.zoomed_fov_deg } else { self.base_fov_deg }
+        if self.active {
+            self.zoomed_fov_deg
+        } else {
+            self.base_fov_deg
+        }
     }
 
     pub fn tick(&mut self, dt: f32) {
@@ -108,7 +117,11 @@ impl PhotoCapture {
             s ^= s << 17;
             data.push((s & 0xFF) as u8);
         }
-        Self { width, height, data }
+        Self {
+            width,
+            height,
+            data,
+        }
     }
 
     pub fn to_ppm(&self) -> Vec<u8> {
@@ -184,7 +197,10 @@ impl WatchManager {
         buf.extend_from_slice(&pos[1].to_le_bytes());
         buf.extend_from_slice(photo_file.as_bytes());
         let mut h: u64 = 0xcbf29ce484222325;
-        for &b in &buf { h ^= b as u64; h = h.wrapping_mul(0x100000001b3); }
+        for &b in &buf {
+            h ^= b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
 
         let report = AnomalyReport {
             report_id: self.next_id,
@@ -225,7 +241,9 @@ mod tests {
 
     fn motion_frame() -> Vec<u8> {
         let mut f = static_frame();
-        for i in 0..1000 { f[i] = 255; }
+        for i in 0..1000 {
+            f[i] = 255;
+        }
         f
     }
 
@@ -248,7 +266,11 @@ mod tests {
     fn zoom_narrows_fov() {
         let mut z = ZoomController::new();
         assert_eq!(z.current_fov_deg(), 120.0);
-        z.zoom_to(WatchZone { angle_deg: 135.0, distance_m: 20.0, confidence: 0.9 });
+        z.zoom_to(WatchZone {
+            angle_deg: 135.0,
+            distance_m: 20.0,
+            confidence: 0.9,
+        });
         assert_eq!(z.current_fov_deg(), 30.0);
         assert!(z.active);
     }
@@ -256,8 +278,14 @@ mod tests {
     #[test]
     fn zoom_restores_after_timeout() {
         let mut z = ZoomController::new();
-        z.zoom_to(WatchZone { angle_deg: 90.0, distance_m: 15.0, confidence: 0.8 });
-        for _ in 0..60 { z.tick(0.1); }
+        z.zoom_to(WatchZone {
+            angle_deg: 90.0,
+            distance_m: 15.0,
+            confidence: 0.8,
+        });
+        for _ in 0..60 {
+            z.tick(0.1);
+        }
         assert_eq!(z.current_fov_deg(), 120.0);
         assert!(!z.active);
     }
@@ -283,7 +311,9 @@ mod tests {
         let mut d = MotionDetector::new(10.0);
         let _ = d.detect(&static_frame());
         let mut small = static_frame();
-        for i in 0..10 { small[i] = 129; }
+        for i in 0..10 {
+            small[i] = 129;
+        }
         assert!(d.detect(&small).is_none());
     }
 
@@ -302,7 +332,9 @@ mod tests {
         let mut m = WatchManager::new();
         let mut c = chain();
         let _ = m.on_frame(&static_frame(), 0.0, [0.0, 0.0], 10.0, 0.0, 0.0, &mut c);
-        let r = m.on_frame(&motion_frame(), 5.0, [12.0, 7.0], 20.0, 90.0, 25.0, &mut c).unwrap();
+        let r = m
+            .on_frame(&motion_frame(), 5.0, [12.0, 7.0], 20.0, 90.0, 25.0, &mut c)
+            .unwrap();
         assert_eq!(r.timestamp_s, 5.0);
         assert_eq!(r.drone_pos, [12.0, 7.0]);
         assert_eq!(r.drone_alt_m, 20.0);
@@ -316,7 +348,9 @@ mod tests {
         let mut m = WatchManager::new();
         let mut c = chain();
         let _ = m.on_frame(&static_frame(), 0.0, [0.0, 0.0], 10.0, 0.0, 0.0, &mut c);
-        let r = m.on_frame(&motion_frame(), 1.0, [0.0, 0.0], 10.0, 0.0, 10.0, &mut c).unwrap();
+        let r = m
+            .on_frame(&motion_frame(), 1.0, [0.0, 0.0], 10.0, 0.0, 10.0, &mut c)
+            .unwrap();
         assert_eq!(r.classification, "high_interest");
     }
 

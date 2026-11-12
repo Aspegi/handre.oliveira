@@ -1,4 +1,4 @@
-﻿#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_std)]
 #![allow(clippy::new_without_default)]
 //! HAL — Hardware Abstraction Layer para o RNFC.
 //!
@@ -59,9 +59,16 @@ pub struct SitlHal {
 impl SitlHal {
     pub fn new() -> Self {
         Self {
-            imu: ImuSample { accel: [0.0, 0.0, -9.81], gyro: [0.0, 0.0, 0.0], dt: 0.01 },
+            imu: ImuSample {
+                accel: [0.0, 0.0, -9.81],
+                gyro: [0.0, 0.0, 0.0],
+                dt: 0.01,
+            },
             gnss: None,
-            mag: MagSample { field: [50.0, 0.0, 0.0], dt: 0.01 },
+            mag: MagSample {
+                field: [50.0, 0.0, 0.0],
+                dt: 0.01,
+            },
             motors: [0.0; 4],
             t_ms: 0,
         }
@@ -69,11 +76,22 @@ impl SitlHal {
 }
 
 impl FlightController for SitlHal {
-    fn read_imu(&mut self) -> ImuSample { self.imu }
-    fn read_gnss(&mut self) -> Option<GnssFix> { self.gnss }
-    fn read_mag(&mut self) -> MagSample { self.mag }
-    fn set_motors(&mut self, throttles: [f32; 4]) { self.motors = throttles; }
-    fn now_ms(&mut self) -> u64 { self.t_ms += 10; self.t_ms }
+    fn read_imu(&mut self) -> ImuSample {
+        self.imu
+    }
+    fn read_gnss(&mut self) -> Option<GnssFix> {
+        self.gnss
+    }
+    fn read_mag(&mut self) -> MagSample {
+        self.mag
+    }
+    fn set_motors(&mut self, throttles: [f32; 4]) {
+        self.motors = throttles;
+    }
+    fn now_ms(&mut self) -> u64 {
+        self.t_ms += 10;
+        self.t_ms
+    }
 }
 
 #[cfg(test)]
@@ -82,14 +100,26 @@ mod tests {
 
     #[test]
     fn actuator_zero_produces_equal_motors() {
-        let cmd = ActuatorCmd { roll_torque: 0.0, pitch_torque: 0.0, yaw_torque: 0.0, base_throttle: 0.5 };
+        let cmd = ActuatorCmd {
+            roll_torque: 0.0,
+            pitch_torque: 0.0,
+            yaw_torque: 0.0,
+            base_throttle: 0.5,
+        };
         let m = cmd.to_motors();
-        for i in 0..4 { assert!((m[i] - 0.5).abs() < 1e-6); }
+        for i in 0..4 {
+            assert!((m[i] - 0.5).abs() < 1e-6);
+        }
     }
 
     #[test]
     fn actuator_roll_produces_asymmetric() {
-        let cmd = ActuatorCmd { roll_torque: 0.1, pitch_torque: 0.0, yaw_torque: 0.0, base_throttle: 0.5 };
+        let cmd = ActuatorCmd {
+            roll_torque: 0.1,
+            pitch_torque: 0.0,
+            yaw_torque: 0.0,
+            base_throttle: 0.5,
+        };
         let m = cmd.to_motors();
         // Motor 0 e 3 (esquerda) reduzem, 1 e 2 (direita) aumentam
         assert!(m[0] < 0.5, "motor 0={}", m[0]);
@@ -98,9 +128,16 @@ mod tests {
 
     #[test]
     fn throttle_clamped() {
-        let cmd = ActuatorCmd { roll_torque: 0.0, pitch_torque: 0.0, yaw_torque: 0.0, base_throttle: 2.0 };
+        let cmd = ActuatorCmd {
+            roll_torque: 0.0,
+            pitch_torque: 0.0,
+            yaw_torque: 0.0,
+            base_throttle: 2.0,
+        };
         let m = cmd.to_motors();
-        for i in 0..4 { assert!((m[i] - 1.0).abs() < 1e-6); }
+        for i in 0..4 {
+            assert!((m[i] - 1.0).abs() < 1e-6);
+        }
     }
 
     #[test]

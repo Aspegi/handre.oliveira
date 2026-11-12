@@ -1,4 +1,4 @@
-﻿//! Omni — 360° perception with graceful degradation.
+//! Omni — 360° perception with graceful degradation.
 //!
 //! 72 bins of 5° each around the drone. N cameras distributed
 //! around the ring; each camera covers a configurable FOV.
@@ -10,13 +10,25 @@ pub const NUM_BINS: usize = 72;
 pub const BIN_WIDTH_DEG: f32 = 360.0 / NUM_BINS as f32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OmniHealth { Healthy, Degraded, Blind }
+pub enum OmniHealth {
+    Healthy,
+    Degraded,
+    Blind,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OmniAction { Continue, Hover, Rtl, Land }
+pub enum OmniAction {
+    Continue,
+    Hover,
+    Rtl,
+    Land,
+}
 
 #[derive(Clone, Copy, Debug)]
-pub struct Obstacle { pub angle_deg: f32, pub distance_m: f32 }
+pub struct Obstacle {
+    pub angle_deg: f32,
+    pub distance_m: f32,
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct SimulatedCamera {
@@ -27,18 +39,28 @@ pub struct SimulatedCamera {
 
 impl SimulatedCamera {
     pub fn new(center_angle_deg: f32, fov_deg: f32) -> Self {
-        Self { center_angle_deg, fov_deg, healthy: true }
+        Self {
+            center_angle_deg,
+            fov_deg,
+            healthy: true,
+        }
     }
     pub fn sees(&self, angle_deg: f32) -> bool {
-        if !self.healthy { return false; }
+        if !self.healthy {
+            return false;
+        }
         let half = self.fov_deg / 2.0;
         let mut diff = (angle_deg - self.center_angle_deg).abs() % 360.0;
-        if diff > 180.0 { diff = 360.0 - diff; }
+        if diff > 180.0 {
+            diff = 360.0 - diff;
+        }
         diff <= half
     }
 }
 
-pub struct OmniSensorSuite { pub cameras: Vec<SimulatedCamera> }
+pub struct OmniSensorSuite {
+    pub cameras: Vec<SimulatedCamera>,
+}
 
 impl OmniSensorSuite {
     pub fn new(n: usize, fov_deg: f32) -> Self {
@@ -50,7 +72,9 @@ impl OmniSensorSuite {
         Self { cameras }
     }
     pub fn fail_camera(&mut self, idx: usize) {
-        if let Some(c) = self.cameras.get_mut(idx) { c.healthy = false; }
+        if let Some(c) = self.cameras.get_mut(idx) {
+            c.healthy = false;
+        }
     }
     pub fn sense(&self, obstacles: &[Obstacle]) -> OmniRing {
         let mut bins = [f32::INFINITY; NUM_BINS];
@@ -58,7 +82,9 @@ impl OmniSensorSuite {
         for bin in 0..NUM_BINS {
             let bin_center = (bin as f32 + 0.5) * BIN_WIDTH_DEG;
             let any_sees = self.cameras.iter().any(|c| c.sees(bin_center));
-            if !any_sees { continue; }
+            if !any_sees {
+                continue;
+            }
             coverage_mask[bin] = true;
             for obs in obstacles {
                 let obs_angle = ((obs.angle_deg % 360.0) + 360.0) % 360.0;
@@ -70,10 +96,19 @@ impl OmniSensorSuite {
         }
         let covered = coverage_mask.iter().filter(|&&b| b).count();
         let coverage_pct = covered as f32 / NUM_BINS as f32 * 100.0;
-        let health = if coverage_pct >= 95.0 { OmniHealth::Healthy }
-            else if coverage_pct >= 50.0 { OmniHealth::Degraded }
-            else { OmniHealth::Blind };
-        OmniRing { bins, coverage_mask, health, coverage_pct }
+        let health = if coverage_pct >= 95.0 {
+            OmniHealth::Healthy
+        } else if coverage_pct >= 50.0 {
+            OmniHealth::Degraded
+        } else {
+            OmniHealth::Blind
+        };
+        OmniRing {
+            bins,
+            coverage_mask,
+            health,
+            coverage_pct,
+        }
     }
 }
 
@@ -115,9 +150,15 @@ impl OmniRing {
     pub fn nearest_obstacle(&self) -> Option<f32> {
         let mut min = f32::INFINITY;
         for (i, &b) in self.bins.iter().enumerate() {
-            if self.coverage_mask[i] && b < min { min = b; }
+            if self.coverage_mask[i] && b < min {
+                min = b;
+            }
         }
-        if min.is_finite() { Some(min) } else { None }
+        if min.is_finite() {
+            Some(min)
+        } else {
+            None
+        }
     }
 }
 
@@ -170,7 +211,10 @@ mod tests {
     #[test]
     fn obstacle_recorded_in_correct_bin() {
         let suite = OmniSensorSuite::new(3, 120.0);
-        let ring = suite.sense(&[Obstacle { angle_deg: 90.0, distance_m: 5.0 }]);
+        let ring = suite.sense(&[Obstacle {
+            angle_deg: 90.0,
+            distance_m: 5.0,
+        }]);
         assert_eq!(ring.bins[18], 5.0);
     }
 
@@ -178,8 +222,14 @@ mod tests {
     fn nearest_obstacle_wins_in_bin() {
         let suite = OmniSensorSuite::new(3, 120.0);
         let ring = suite.sense(&[
-            Obstacle { angle_deg: 90.0, distance_m: 10.0 },
-            Obstacle { angle_deg: 90.0, distance_m: 3.0 },
+            Obstacle {
+                angle_deg: 90.0,
+                distance_m: 10.0,
+            },
+            Obstacle {
+                angle_deg: 90.0,
+                distance_m: 3.0,
+            },
         ]);
         assert_eq!(ring.bins[18], 3.0);
     }
@@ -187,7 +237,10 @@ mod tests {
     #[test]
     fn nearest_obstacle_method() {
         let suite = OmniSensorSuite::new(3, 120.0);
-        let ring = suite.sense(&[Obstacle { angle_deg: 0.0, distance_m: 2.5 }]);
+        let ring = suite.sense(&[Obstacle {
+            angle_deg: 0.0,
+            distance_m: 2.5,
+        }]);
         assert_eq!(ring.nearest_obstacle(), Some(2.5));
     }
 
@@ -206,7 +259,10 @@ mod tests {
     #[test]
     fn deterministic_output() {
         let suite = OmniSensorSuite::new(3, 120.0);
-        let obs = Obstacle { angle_deg: 45.0, distance_m: 4.0 };
+        let obs = Obstacle {
+            angle_deg: 45.0,
+            distance_m: 4.0,
+        };
         let r1 = suite.sense(&[obs]);
         let r2 = suite.sense(&[obs]);
         assert_eq!(r1.coverage_pct, r2.coverage_pct);

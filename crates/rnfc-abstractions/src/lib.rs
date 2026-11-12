@@ -28,5 +28,3 @@ pub trait Gnss {
 pub trait Magnetometer {
     fn read(&mut self) -> MagSample;
 }
-
-

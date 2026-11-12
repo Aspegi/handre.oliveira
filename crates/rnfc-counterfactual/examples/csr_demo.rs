@@ -1,4 +1,4 @@
-﻿//! CSR demo: post-mission counterfactual analysis with proofs.
+//! CSR demo: post-mission counterfactual analysis with proofs.
 //! Run: cargo run -p rnfc-counterfactual --example csr_demo --release
 //! Output: safety_case_with_counterfactuals.md
 
@@ -19,7 +19,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Mission:");
     println!("  Target:       [{:.1}, {:.1}]", target[0], target[1]);
-    println!("  Actual final: [{:.1}, {:.1}]", actual_final[0], actual_final[1]);
+    println!(
+        "  Actual final: [{:.1}, {:.1}]",
+        actual_final[0], actual_final[1]
+    );
     println!("  Actual error: {:.2} m", actual_err);
     println!("  Duration:     {:.1} s", traj.last().unwrap().t_s);
     println!();
@@ -29,14 +32,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     chain.append(3.3, 2, 0xBB22, SafetyState::Nominal).unwrap();
     chain.append(6.6, 2, 0xCC33, SafetyState::Nominal).unwrap();
     chain.append(10.0, 1, 0xDD44, SafetyState::Nominal).unwrap();
-    println!("Chain: {} blocks, root_hash = 0x{:016x}", chain.block_count(), chain.root_hash());
+    println!(
+        "Chain: {} blocks, root_hash = 0x{:016x}",
+        chain.block_count(),
+        chain.root_hash()
+    );
     println!();
 
     let engine = CounterfactualEngine::new();
     let scenarios: Vec<(&str, CounterfactualResult)> = vec![
         ("wind_0x (no wind)", engine.what_if_wind(&traj, target, 0.0)),
-        ("wind_1x (baseline)", engine.what_if_wind(&traj, target, 1.0)),
-        ("wind_20x (extreme)", engine.what_if_wind(&traj, target, 20.0)),
+        (
+            "wind_1x (baseline)",
+            engine.what_if_wind(&traj, target, 1.0),
+        ),
+        (
+            "wind_20x (extreme)",
+            engine.what_if_wind(&traj, target, 20.0),
+        ),
         ("altitude_+150m", engine.what_if_altitude(&traj, 150.0)),
     ];
 
@@ -46,37 +59,50 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (name, r) in &scenarios {
         let proof = engine.prove(&chain, r);
         let verified = engine.verify(&proof, &chain, r);
-        if verified { verified_count += 1; }
+        if verified {
+            verified_count += 1;
+        }
         let outcome_str = match &r.outcome {
             Outcome::SameAsActual => "SameAsActual".to_string(),
             Outcome::Better { improvement_m } => format!("Better (+{:.1}m)", *improvement_m),
             Outcome::Worse { delta_m } => format!("Worse (-{:.1}m)", *delta_m),
             Outcome::Failed { reason } => format!("FAILED ({})", reason),
         };
-        println!("  {:<22} {} | err={:.1}m | proof=0x{:016x} | verify={}",
-            name, outcome_str, r.waypoint_error_m, proof.proof_hash,
-            if verified { "PASS" } else { "FAIL" });
+        println!(
+            "  {:<22} {} | err={:.1}m | proof=0x{:016x} | verify={}",
+            name,
+            outcome_str,
+            r.waypoint_error_m,
+            proof.proof_hash,
+            if verified { "PASS" } else { "FAIL" }
+        );
         rows.push((name.to_string(), r.clone(), proof, verified));
     }
     println!();
 
     write_safety_case(&rows, &chain, &traj, target, actual_final, actual_err)?;
     println!("[OK] safety_case_with_counterfactuals.md written");
-    println!("[OK] {}/{} proofs verified", verified_count, scenarios.len());
+    println!(
+        "[OK] {}/{} proofs verified",
+        verified_count,
+        scenarios.len()
+    );
     Ok(())
 }
 
 fn generate_trajectory() -> Vec<TrajectorySample> {
-    (0..=10).map(|i| {
-        let t = i as f32;
-        TrajectorySample {
-            t_s: t,
-            pos: [5.0 * t, 0.15 * t],
-            vel: [5.0, 2.0],
-            wind: [0.0, 0.15],
-            altitude: 10.0,
-        }
-    }).collect()
+    (0..=10)
+        .map(|i| {
+            let t = i as f32;
+            TrajectorySample {
+                t_s: t,
+                pos: [5.0 * t, 0.15 * t],
+                vel: [5.0, 2.0],
+                wind: [0.0, 0.15],
+                altitude: 10.0,
+            }
+        })
+        .collect()
 }
 
 fn dist(a: [f32; 2], b: [f32; 2]) -> f32 {
@@ -106,7 +132,11 @@ fn write_safety_case(
     writeln!(f, "| Blocks | {} |", chain.block_count())?;
     writeln!(f, "| Root hash | `0x{:016x}` |", chain.root_hash())?;
     writeln!(f, "| Target | `[{:.1}, {:.1}]` |", target[0], target[1])?;
-    writeln!(f, "| Actual final pos | `[{:.1}, {:.1}]` |", actual_final[0], actual_final[1])?;
+    writeln!(
+        f,
+        "| Actual final pos | `[{:.1}, {:.1}]` |",
+        actual_final[0], actual_final[1]
+    )?;
     writeln!(f, "| Actual error | {:.2} m |", actual_err)?;
     writeln!(f, "| Duration | {:.1} s |", traj.last().unwrap().t_s)?;
     writeln!(f, "| Samples | {} |", traj.len())?;
@@ -116,7 +146,10 @@ fn write_safety_case(
     writeln!(f)?;
     writeln!(f, "Post-mission, the drone answers \"what if?\" questions with cryptographic proofs bound to the chain above.")?;
     writeln!(f)?;
-    writeln!(f, "| Scenario | Outcome | Waypoint error | Proof hash | Verified |")?;
+    writeln!(
+        f,
+        "| Scenario | Outcome | Waypoint error | Proof hash | Verified |"
+    )?;
     writeln!(f, "|---|---|---|---|---|")?;
     for (name, r, p, verified) in rows {
         let outcome_str = match &r.outcome {
@@ -125,9 +158,15 @@ fn write_safety_case(
             Outcome::Worse { delta_m } => format!("Worse ({:.1} m)", *delta_m),
             Outcome::Failed { reason } => format!("**FAILED** — {}", reason),
         };
-        writeln!(f, "| {} | {} | {:.1} m | `0x{:016x}` | {} |",
-            name, outcome_str, r.waypoint_error_m, p.proof_hash,
-            if *verified { "✅ PASS" } else { "❌ FAIL" })?;
+        writeln!(
+            f,
+            "| {} | {} | {:.1} m | `0x{:016x}` | {} |",
+            name,
+            outcome_str,
+            r.waypoint_error_m,
+            p.proof_hash,
+            if *verified { "✅ PASS" } else { "❌ FAIL" }
+        )?;
     }
     writeln!(f)?;
 
@@ -136,13 +175,27 @@ fn write_safety_case(
     writeln!(f, "## Regulator Verdict")?;
     writeln!(f)?;
     if passed == total {
-        writeln!(f, "**{}/{} proofs verified. Mission safety case: PASS.**", passed, total)?;
+        writeln!(
+            f,
+            "**{}/{} proofs verified. Mission safety case: PASS.**",
+            passed, total
+        )?;
     } else {
-        writeln!(f, "**{}/{} proofs verified. Mission safety case: FAIL.**", passed, total)?;
+        writeln!(
+            f,
+            "**{}/{} proofs verified. Mission safety case: FAIL.**",
+            passed, total
+        )?;
     }
     writeln!(f)?;
-    writeln!(f, "All counterfactual proofs are cryptographically bound to the mission chain.")?;
-    writeln!(f, "If any block of the chain is modified, all proofs become invalid.")?;
+    writeln!(
+        f,
+        "All counterfactual proofs are cryptographically bound to the mission chain."
+    )?;
+    writeln!(
+        f,
+        "If any block of the chain is modified, all proofs become invalid."
+    )?;
     writeln!(f)?;
 
     writeln!(f, "## Verification Recipe")?;

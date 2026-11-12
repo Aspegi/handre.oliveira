@@ -1,4 +1,4 @@
-﻿//! Decision — multi-objective route selection with rationale.
+//! Decision — multi-objective route selection with rationale.
 //!
 //! The drone generates N candidate routes, scores each with a weighted
 //! cost function (distance + wind + obstacle + battery), picks the best,
@@ -13,7 +13,7 @@ use rnfc_certchain::{CertChain, SafetyState};
 #[derive(Clone, Debug)]
 pub struct RouteCandidate {
     pub name: String,
-    pub waypoints: Vec<[f32; 2]>,  // includes start as first, target as last
+    pub waypoints: Vec<[f32; 2]>, // includes start as first, target as last
     pub distance_m: f32,
 }
 
@@ -27,7 +27,12 @@ pub struct CostWeights {
 
 impl Default for CostWeights {
     fn default() -> Self {
-        Self { distance: 1.0, wind: 1.0, obstacle: 2.0, battery: 1.0 }
+        Self {
+            distance: 1.0,
+            wind: 1.0,
+            obstacle: 2.0,
+            battery: 1.0,
+        }
     }
 }
 
@@ -55,20 +60,39 @@ pub struct Decision {
     pub rationale: String,
 }
 
-pub struct DecisionEngine { pub weights: CostWeights }
+pub struct DecisionEngine {
+    pub weights: CostWeights,
+}
 
 impl DecisionEngine {
-    pub fn new() -> Self { Self { weights: CostWeights::default() } }
+    pub fn new() -> Self {
+        Self {
+            weights: CostWeights::default(),
+        }
+    }
 
     pub fn generate_candidates(start: [f32; 2], target: [f32; 2]) -> Vec<RouteCandidate> {
         let mid = [(start[0] + target[0]) / 2.0, (start[1] + target[1]) / 2.0];
         let offset = 30.0;
         let direct_dist = dist(start, target);
-        let detour_dist = dist(start, [mid[0], mid[1] + offset]) + dist([mid[0], mid[1] + offset], target);
+        let detour_dist =
+            dist(start, [mid[0], mid[1] + offset]) + dist([mid[0], mid[1] + offset], target);
         vec![
-            RouteCandidate { name: "direct".into(), waypoints: vec![start, target], distance_m: direct_dist },
-            RouteCandidate { name: "north_detour".into(), waypoints: vec![start, [mid[0], mid[1] + offset], target], distance_m: detour_dist },
-            RouteCandidate { name: "south_detour".into(), waypoints: vec![start, [mid[0], mid[1] - offset], target], distance_m: detour_dist },
+            RouteCandidate {
+                name: "direct".into(),
+                waypoints: vec![start, target],
+                distance_m: direct_dist,
+            },
+            RouteCandidate {
+                name: "north_detour".into(),
+                waypoints: vec![start, [mid[0], mid[1] + offset], target],
+                distance_m: detour_dist,
+            },
+            RouteCandidate {
+                name: "south_detour".into(),
+                waypoints: vec![start, [mid[0], mid[1] - offset], target],
+                distance_m: detour_dist,
+            },
         ]
     }
 
@@ -79,12 +103,19 @@ impl DecisionEngine {
         let min_clear = min_clearance(route, &ctx.obstacles);
         let obstacle_cost = if min_clear < 5.0 {
             (5.0 - min_clear) * 10.0 * self.weights.obstacle
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
-        let urgency = if ctx.battery_pct < 50.0 { (50.0 - ctx.battery_pct) / 50.0 } else { 0.0 };
+        let urgency = if ctx.battery_pct < 50.0 {
+            (50.0 - ctx.battery_pct) / 50.0
+        } else {
+            0.0
+        };
         let battery_cost = route.distance_m * urgency * 0.05 * self.weights.battery;
 
-        let total = route.distance_m * self.weights.distance + wind_cost + obstacle_cost + battery_cost;
+        let total =
+            route.distance_m * self.weights.distance + wind_cost + obstacle_cost + battery_cost;
         ScoredRoute {
             name: route.name.clone(),
             cost: total,
@@ -98,19 +129,42 @@ impl DecisionEngine {
     pub fn decide(&self, start: [f32; 2], target: [f32; 2], ctx: &DecisionContext) -> Decision {
         let candidates = Self::generate_candidates(start, target);
         let mut scores: Vec<ScoredRoute> = candidates.iter().map(|r| self.score(r, ctx)).collect();
-        scores.sort_by(|a, b| a.cost.partial_cmp(&b.cost).unwrap_or(std::cmp::Ordering::Equal));
+        scores.sort_by(|a, b| {
+            a.cost
+                .partial_cmp(&b.cost)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         let chosen = scores[0].clone();
         let runner = scores.get(1).cloned();
         let mut r = String::new();
-        r.push_str(&format!("Chose {} (cost {:.2}). ", chosen.name, chosen.cost));
+        r.push_str(&format!(
+            "Chose {} (cost {:.2}). ",
+            chosen.name, chosen.cost
+        ));
         if let Some(ru) = runner {
             let pct = ((ru.cost / chosen.cost.max(0.01)) - 1.0) * 100.0;
-            r.push_str(&format!("Runner-up {} cost {:.2} (+{:.1}%). ", ru.name, ru.cost, pct));
+            r.push_str(&format!(
+                "Runner-up {} cost {:.2} (+{:.1}%). ",
+                ru.name, ru.cost, pct
+            ));
         }
-        if chosen.wind_cost > 1.0 { r.push_str(&format!("Wind adds {:.1}. ", chosen.wind_cost)); }
-        if chosen.obstacle_cost > 0.0 { r.push_str(&format!("Obstacle proximity adds {:.1}. ", chosen.obstacle_cost)); }
-        if chosen.battery_cost > 0.0 { r.push_str(&format!("Battery urgency adds {:.1}.", chosen.battery_cost)); }
-        Decision { chosen: chosen.name, scores, rationale: r }
+        if chosen.wind_cost > 1.0 {
+            r.push_str(&format!("Wind adds {:.1}. ", chosen.wind_cost));
+        }
+        if chosen.obstacle_cost > 0.0 {
+            r.push_str(&format!(
+                "Obstacle proximity adds {:.1}. ",
+                chosen.obstacle_cost
+            ));
+        }
+        if chosen.battery_cost > 0.0 {
+            r.push_str(&format!("Battery urgency adds {:.1}.", chosen.battery_cost));
+        }
+        Decision {
+            chosen: chosen.name,
+            scores,
+            rationale: r,
+        }
     }
 
     pub fn prove(&self, chain: &CertChain, d: &Decision) -> u64 {
@@ -140,7 +194,9 @@ fn min_clearance(route: &RouteCandidate, obs: &[([f32; 2], f32); 3]) -> f32 {
             let p = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
             for (op, rad) in obs {
                 let d = dist(p, *op) - rad;
-                if d < min { min = d; }
+                if d < min {
+                    min = d;
+                }
             }
         }
     }
@@ -149,7 +205,10 @@ fn min_clearance(route: &RouteCandidate, obs: &[([f32; 2], f32); 3]) -> f32 {
 
 fn fnv1a_64(bytes: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf29ce484222325;
-    for &b in bytes { h ^= b as u64; h = h.wrapping_mul(0x100000001b3); }
+    for &b in bytes {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
     h
 }
 

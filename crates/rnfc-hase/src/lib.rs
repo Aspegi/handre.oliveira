@@ -1,4 +1,4 @@
-﻿#![allow(clippy::needless_range_loop)]
+#![allow(clippy::needless_range_loop)]
 #![allow(clippy::new_without_default)]
 //! HASE — Human-Authority Safety Envelope.
 //!
@@ -16,18 +16,18 @@ use rnfc_certis::{CertisRecorder, SafetyEventType};
 /// Comando do piloto.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PilotCommand {
-    pub roll: f32,      // rad
-    pub pitch: f32,     // rad
-    pub yaw_rate: f32,  // rad/s
-    pub throttle: f32,  // 0.0-1.0
+    pub roll: f32,     // rad
+    pub pitch: f32,    // rad
+    pub yaw_rate: f32, // rad/s
+    pub throttle: f32, // 0.0-1.0
 }
 
 /// Estado actual do drone (vem do NavCore).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DroneState {
-    pub position: [f32; 2],   // N, E
-    pub velocity: [f32; 2],   // m/s
-    pub altitude: f32,        // m
+    pub position: [f32; 2], // N, E
+    pub velocity: [f32; 2], // m/s
+    pub altitude: f32,      // m
     pub roll: f32,
     pub pitch: f32,
 }
@@ -45,8 +45,8 @@ pub struct SafetyEnvelope {
 impl SafetyEnvelope {
     pub fn new() -> Self {
         Self {
-            max_roll_rad: 0.5236,     // 30 graus
-            max_pitch_rad: 0.5236,    // 30 graus
+            max_roll_rad: 0.5236,  // 30 graus
+            max_pitch_rad: 0.5236, // 30 graus
             min_altitude_m: 2.0,
             max_altitude_m: 100.0,
             geofence_center: [0.0, 0.0],
@@ -66,7 +66,7 @@ pub struct HaseResult {
 /// Haptic feedback (resistencia ao piloto).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HapticFeedback {
-    pub roll_resistance: f32,     // 0.0 = livre, 1.0 = resistência máxima
+    pub roll_resistance: f32, // 0.0 = livre, 1.0 = resistência máxima
     pub pitch_resistance: f32,
     pub throttle_resistance: f32,
     pub vibration_pattern: VibrationPattern,
@@ -76,9 +76,9 @@ pub struct HapticFeedback {
 pub enum VibrationPattern {
     #[default]
     None,
-    Soft,        // resistência moderada
-    Strong,      // violação iminente
-    Pulse,       // falha detectada (motor loss)
+    Soft,   // resistência moderada
+    Strong, // violação iminente
+    Pulse,  // falha detectada (motor loss)
 }
 
 /// Tipo de violação detectada.
@@ -143,10 +143,10 @@ impl HaseFilter {
         let predicted_alt = state.altitude + pilot_cmd.throttle * self.prediction_horizon_s * 2.0;
         let safe_throttle = if predicted_alt < self.envelope.min_altitude_m {
             violations.push(EnvelopeViolation::AltitudeLow);
-            pilot_cmd.throttle.max(0.3)  // forçar subida
+            pilot_cmd.throttle.max(0.3) // forçar subida
         } else if predicted_alt > self.envelope.max_altitude_m {
             violations.push(EnvelopeViolation::AltitudeHigh);
-            pilot_cmd.throttle.min(-0.3)  // forçar descida
+            pilot_cmd.throttle.min(-0.3) // forçar descida
         } else {
             pilot_cmd.throttle
         };
@@ -174,7 +174,10 @@ impl HaseFilter {
         let haptic = HapticFeedback {
             roll_resistance: (roll_risk - 1.0).max(0.0).min(1.0),
             pitch_resistance: (pitch_risk - 1.0).max(0.0).min(1.0),
-            throttle_resistance: if matches!(violations.last(), Some(EnvelopeViolation::AltitudeLow | EnvelopeViolation::AltitudeHigh)) {
+            throttle_resistance: if matches!(
+                violations.last(),
+                Some(EnvelopeViolation::AltitudeLow | EnvelopeViolation::AltitudeHigh)
+            ) {
                 0.5
             } else {
                 0.0
@@ -213,17 +216,19 @@ pub fn log_violation_to_certis(
 ) {
     let event = match violation {
         EnvelopeViolation::RollLimit | EnvelopeViolation::PitchLimit => {
-            SafetyEventType::PilotResisted { reason: "attitude_limit".into() }
+            SafetyEventType::PilotResisted {
+                reason: "attitude_limit".into(),
+            }
         }
         EnvelopeViolation::AltitudeLow | EnvelopeViolation::AltitudeHigh => {
-            SafetyEventType::PilotResisted { reason: "altitude_limit".into() }
+            SafetyEventType::PilotResisted {
+                reason: "altitude_limit".into(),
+            }
         }
-        EnvelopeViolation::GeofenceBreach => {
-            SafetyEventType::PilotResisted { reason: "geofence".into() }
-        }
-        EnvelopeViolation::MotorLoss => {
-            SafetyEventType::MotorLossDetected { motor: 0 }
-        }
+        EnvelopeViolation::GeofenceBreach => SafetyEventType::PilotResisted {
+            reason: "geofence".into(),
+        },
+        EnvelopeViolation::MotorLoss => SafetyEventType::MotorLossDetected { motor: 0 },
     };
     recorder.record(t, event);
 }
@@ -235,8 +240,16 @@ mod tests {
     #[test]
     fn pilot_within_envelope_passes() {
         let hase = HaseFilter::new();
-        let cmd = PilotCommand { roll: 0.1, pitch: 0.1, yaw_rate: 0.0, throttle: 0.0 };
-        let state = DroneState { altitude: 10.0, ..Default::default() };
+        let cmd = PilotCommand {
+            roll: 0.1,
+            pitch: 0.1,
+            yaw_rate: 0.0,
+            throttle: 0.0,
+        };
+        let state = DroneState {
+            altitude: 10.0,
+            ..Default::default()
+        };
         let result = hase.filter(cmd, &state);
         assert!(result.violation.is_none());
         assert_eq!(result.haptic.vibration_pattern, VibrationPattern::None);
@@ -246,8 +259,16 @@ mod tests {
     #[test]
     fn roll_limit_clamped() {
         let hase = HaseFilter::new();
-        let cmd = PilotCommand { roll: 1.5, pitch: 0.0, yaw_rate: 0.0, throttle: 0.0 };
-        let state = DroneState { altitude: 10.0, ..Default::default() };
+        let cmd = PilotCommand {
+            roll: 1.5,
+            pitch: 0.0,
+            yaw_rate: 0.0,
+            throttle: 0.0,
+        };
+        let state = DroneState {
+            altitude: 10.0,
+            ..Default::default()
+        };
         let result = hase.filter(cmd, &state);
         assert!(result.violation.is_some());
         assert!((result.safe_command.roll - 0.5236).abs() < 0.01);
@@ -257,10 +278,21 @@ mod tests {
     #[test]
     fn altitude_low_forces_climb() {
         let hase = HaseFilter::new();
-        let cmd = PilotCommand { roll: 0.0, pitch: 0.0, yaw_rate: 0.0, throttle: -0.5 };
-        let state = DroneState { altitude: 2.5, ..Default::default() };
+        let cmd = PilotCommand {
+            roll: 0.0,
+            pitch: 0.0,
+            yaw_rate: 0.0,
+            throttle: -0.5,
+        };
+        let state = DroneState {
+            altitude: 2.5,
+            ..Default::default()
+        };
         let result = hase.filter(cmd, &state);
-        assert!(matches!(result.violation, Some(EnvelopeViolation::AltitudeLow)));
+        assert!(matches!(
+            result.violation,
+            Some(EnvelopeViolation::AltitudeLow)
+        ));
         assert!(result.safe_command.throttle >= 0.3);
         assert_eq!(result.haptic.vibration_pattern, VibrationPattern::Soft);
     }
@@ -271,12 +303,15 @@ mod tests {
         let cmd = PilotCommand::default();
         let state = DroneState {
             position: [490.0, 0.0],
-            velocity: [10.0, 0.0],  // a voar em direcção ao limite
+            velocity: [10.0, 0.0], // a voar em direcção ao limite
             altitude: 10.0,
             ..Default::default()
         };
         let result = hase.filter(cmd, &state);
-        assert!(matches!(result.violation, Some(EnvelopeViolation::GeofenceBreach)));
+        assert!(matches!(
+            result.violation,
+            Some(EnvelopeViolation::GeofenceBreach)
+        ));
     }
 
     #[test]
@@ -284,17 +319,31 @@ mod tests {
         let mut hase = HaseFilter::new();
         hase.update_fdir_state(false, true);
         let cmd = PilotCommand::default();
-        let state = DroneState { altitude: 10.0, ..Default::default() };
+        let state = DroneState {
+            altitude: 10.0,
+            ..Default::default()
+        };
         let result = hase.filter(cmd, &state);
-        assert!(matches!(result.violation, Some(EnvelopeViolation::MotorLoss)));
+        assert!(matches!(
+            result.violation,
+            Some(EnvelopeViolation::MotorLoss)
+        ));
         assert_eq!(result.haptic.vibration_pattern, VibrationPattern::Pulse);
     }
 
     #[test]
     fn strong_resistance_on_extreme_command() {
         let hase = HaseFilter::new();
-        let cmd = PilotCommand { roll: 2.0, pitch: 0.0, yaw_rate: 0.0, throttle: 0.0 };
-        let state = DroneState { altitude: 10.0, ..Default::default() };
+        let cmd = PilotCommand {
+            roll: 2.0,
+            pitch: 0.0,
+            yaw_rate: 0.0,
+            throttle: 0.0,
+        };
+        let state = DroneState {
+            altitude: 10.0,
+            ..Default::default()
+        };
         let result = hase.filter(cmd, &state);
         assert_eq!(result.haptic.vibration_pattern, VibrationPattern::Strong);
     }
@@ -303,22 +352,41 @@ mod tests {
     fn certis_logging_pilot_override() {
         let mut recorder = CertisRecorder::new("hase_test");
         let hase = HaseFilter::new();
-        let cmd = PilotCommand { roll: 1.5, pitch: 0.0, yaw_rate: 0.0, throttle: 0.0 };
-        let state = DroneState { altitude: 10.0, ..Default::default() };
+        let cmd = PilotCommand {
+            roll: 1.5,
+            pitch: 0.0,
+            yaw_rate: 0.0,
+            throttle: 0.0,
+        };
+        let state = DroneState {
+            altitude: 10.0,
+            ..Default::default()
+        };
         let result = hase.filter(cmd, &state);
         if let Some(violation) = &result.violation {
             log_violation_to_certis(&mut recorder, 10.0, violation);
         }
         assert!(!recorder.events.is_empty());
-        assert!(matches!(recorder.events[0].kind, SafetyEventType::PilotResisted { .. }));
+        assert!(matches!(
+            recorder.events[0].kind,
+            SafetyEventType::PilotResisted { .. }
+        ));
         assert!(recorder.verify_chain());
     }
 
     #[test]
     fn hase_preserves_pilot_authority_when_safe() {
         let hase = HaseFilter::new();
-        let cmd = PilotCommand { roll: 0.3, pitch: -0.2, yaw_rate: 0.5, throttle: 0.1 };
-        let state = DroneState { altitude: 15.0, ..Default::default() };
+        let cmd = PilotCommand {
+            roll: 0.3,
+            pitch: -0.2,
+            yaw_rate: 0.5,
+            throttle: 0.1,
+        };
+        let state = DroneState {
+            altitude: 15.0,
+            ..Default::default()
+        };
         let result = hase.filter(cmd, &state);
         // Comando seguro -> passa intacto
         assert!((result.safe_command.roll - 0.3).abs() < 1e-6);

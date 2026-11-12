@@ -1,4 +1,4 @@
-﻿use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rnfc_abstractions::{GnssFix, ImuSample};
 use rnfc_core::attitude_controller::AttitudeController;
 use rnfc_core::fusion_mag::FusionMag;
@@ -7,8 +7,16 @@ use rnfc_core::NavCore;
 
 fn bench_navcore_step(c: &mut Criterion) {
     let mut nav = NavCore::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]);
-    let imu = ImuSample { accel: [0.0, 0.0, -9.81], gyro: [0.1, -0.05, 0.02], dt: 0.01 };
-    let gnss = Some(GnssFix { position: [100.0, 50.0, 0.0], velocity: [2.0, 1.0, 0.0], hdop: 1.0 });
+    let imu = ImuSample {
+        accel: [0.0, 0.0, -9.81],
+        gyro: [0.1, -0.05, 0.02],
+        dt: 0.01,
+    };
+    let gnss = Some(GnssFix {
+        position: [100.0, 50.0, 0.0],
+        velocity: [2.0, 1.0, 0.0],
+        hdop: 1.0,
+    });
     c.bench_function("navcore_step", |b| {
         b.iter(|| nav.step(black_box(&imu), black_box(gnss.as_ref())))
     });
@@ -17,7 +25,14 @@ fn bench_navcore_step(c: &mut Criterion) {
 fn bench_fusion_mag_update(c: &mut Criterion) {
     let mut f = FusionMag::new(0.0);
     c.bench_function("fusion_mag_update", |b| {
-        b.iter(|| f.update(black_box(50.0), black_box(30.0), black_box(0.1), black_box(0.01)))
+        b.iter(|| {
+            f.update(
+                black_box(50.0),
+                black_box(30.0),
+                black_box(0.1),
+                black_box(0.01),
+            )
+        })
     });
 }
 
@@ -37,5 +52,11 @@ fn bench_attitude_controller(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_navcore_step, bench_fusion_mag_update, bench_guidance_update, bench_attitude_controller);
+criterion_group!(
+    benches,
+    bench_navcore_step,
+    bench_fusion_mag_update,
+    bench_guidance_update,
+    bench_attitude_controller
+);
 criterion_main!(benches);

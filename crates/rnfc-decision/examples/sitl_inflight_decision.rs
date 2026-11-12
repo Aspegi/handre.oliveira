@@ -1,4 +1,4 @@
-﻿//! In-flight decision demo: drone changes route mid-mission.
+//! In-flight decision demo: drone changes route mid-mission.
 //! Run: cargo run -p rnfc-decision --example sitl_inflight_decision
 
 use rnfc_certchain::{CertChain, SafetyState};
@@ -53,7 +53,10 @@ fn main() {
     while t < 30.0 && wp_idx < waypoints.len() {
         let wp = waypoints[wp_idx];
         let d = dist(pos, wp);
-        if d < 0.5 { wp_idx += 1; continue; }
+        if d < 0.5 {
+            wp_idx += 1;
+            continue;
+        }
         let dir = [(wp[0] - pos[0]) / d, (wp[1] - pos[1]) / d];
         pos = [pos[0] + dir[0] * speed * dt, pos[1] + dir[1] * speed * dt];
         t += dt;
@@ -62,16 +65,29 @@ fn main() {
         if !obstacle_injected && t >= 3.0 && route_name == "direct" {
             obstacle_injected = true;
             ctx.obstacles[0] = ([50.0, 0.0], 8.0);
-            println!("\n[t={:.1}s] >>> OBSTACLE DETECTED at [50, 0] radius 8m <<<\n", t);
+            println!(
+                "\n[t={:.1}s] >>> OBSTACLE DETECTED at [50, 0] radius 8m <<<\n",
+                t
+            );
 
             let new_decision = engine.decide(pos, target, &ctx);
             if new_decision.chosen != route_name {
-                println!("[t={:.1}s] DECISION CHANGED: {} -> {}", t, route_name, new_decision.chosen);
+                println!(
+                    "[t={:.1}s] DECISION CHANGED: {} -> {}",
+                    t, route_name, new_decision.chosen
+                );
                 println!("[t={:.1}s] Rationale: {}", t, new_decision.rationale);
-                let direct_cost = new_decision.scores.iter()
-                    .find(|s| s.name == "direct").map(|s| s.cost).unwrap_or(0.0);
+                let direct_cost = new_decision
+                    .scores
+                    .iter()
+                    .find(|s| s.name == "direct")
+                    .map(|s| s.cost)
+                    .unwrap_or(0.0);
                 let chosen_cost = new_decision.scores[0].cost;
-                println!("[t={:.1}s] Cost: direct={:.2} vs {}={:.2}", t, direct_cost, new_decision.chosen, chosen_cost);
+                println!(
+                    "[t={:.1}s] Cost: direct={:.2} vs {}={:.2}",
+                    t, direct_cost, new_decision.chosen, chosen_cost
+                );
 
                 route_name = new_decision.chosen.clone();
                 waypoints = route_waypoints(&route_name, pos, target);
@@ -82,13 +98,19 @@ fn main() {
                 if let Err(e) = chain.append(t, 1, proof, SafetyState::Nominal) {
                     eprintln!("chain append failed: {:?}", e);
                 }
-                println!("[t={:.1}s] Decision recorded in chain: 0x{:016x}\n", t, proof);
+                println!(
+                    "[t={:.1}s] Decision recorded in chain: 0x{:016x}\n",
+                    t, proof
+                );
             }
         }
 
         // Print every 2s
         if (t * 10.0).round() as i32 % 20 == 0 {
-            println!("[t={:.1}s] pos=[{:.1}, {:.1}] route={}", t, pos[0], pos[1], route_name);
+            println!(
+                "[t={:.1}s] pos=[{:.1}, {:.1}] route={}",
+                t, pos[0], pos[1], route_name
+            );
         }
     }
 
@@ -97,6 +119,10 @@ fn main() {
     println!("Final route: {}", route_name);
     println!("Distance to target: {:.1}m", dist(pos, target));
     println!("Decision changes: {}", decision_changes);
-    println!("Chain: {} blocks, verified: {}", chain.block_count(), chain.verify());
+    println!(
+        "Chain: {} blocks, verified: {}",
+        chain.block_count(),
+        chain.verify()
+    );
     println!("\nKey: drone CHANGED ROUTE MID-FLIGHT when the obstacle appeared.");
 }
