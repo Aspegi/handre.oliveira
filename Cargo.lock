@@ -588,6 +588,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rnfc-counterfactual"
+version = "0.1.0"
+dependencies = [
+ "rnfc-certchain",
+]
+
+[[package]]
 name = "rnfc-daa"
 version = "0.1.0"
 dependencies = [
