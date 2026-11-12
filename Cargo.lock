@@ -603,6 +603,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rnfc-decision"
+version = "0.1.0"
+dependencies = [
+ "rnfc-certchain",
+]
+
+[[package]]
 name = "rnfc-fdir"
 version = "0.1.0"
 dependencies = [

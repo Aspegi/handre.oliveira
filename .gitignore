@@ -31,3 +31,4 @@ requirements.safety
 generated_tests.rs
 safety_case_gsn.md
 scc_demo_output.txt
+decision_rationale_report.md

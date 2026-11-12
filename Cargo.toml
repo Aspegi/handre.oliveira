@@ -16,6 +16,7 @@ members = [
     "crates/rnfc-omni",
     "crates/rnfc-counterfactual",
     "crates/rnfc-scc",
+    "crates/rnfc-decision",
     "crates/rnfc-mavlink",
     "crates/rnfc-surveillance",
     "crates/rnfc-backend-isr",
@@ -30,6 +31,7 @@ license = "MIT OR Apache-2.0"
 panic = "abort"
 lto = true
 codegen-units = 1
+
 
 
 
