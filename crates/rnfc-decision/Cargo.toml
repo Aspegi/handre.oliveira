@@ -6,3 +6,6 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 rnfc-certchain = { path = "../rnfc-certchain" }
+
+[dev-dependencies]
+rnfc-watch = { path = "../rnfc-watch" }

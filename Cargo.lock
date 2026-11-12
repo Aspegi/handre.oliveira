@@ -607,6 +607,7 @@ name = "rnfc-decision"
 version = "0.1.0"
 dependencies = [
  "rnfc-certchain",
+ "rnfc-watch",
 ]
 
 [[package]]
