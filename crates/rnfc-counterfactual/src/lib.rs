@@ -124,13 +124,15 @@ impl CounterfactualEngine {
 }
 
 fn classify(cf_err: f32, actual_err: f32, tol: f32) -> Outcome {
-    if cf_err > tol * 5.0 {
+    if (cf_err - actual_err).abs() < 0.1 {
+        Outcome::SameAsActual
+    } else if cf_err > tol * 5.0 {
         Outcome::Failed { reason: format!("err {:.2}m > {:.1}m", cf_err, tol * 5.0) }
     } else if cf_err > actual_err + 0.1 {
         Outcome::Worse { delta_m: cf_err - actual_err }
-    } else if cf_err < actual_err - 0.1 {
+    } else {
         Outcome::Better { improvement_m: actual_err - cf_err }
-    } else { Outcome::SameAsActual }
+    }
 }
 
 fn dist(a: [f32; 2], b: [f32; 2]) -> f32 {
