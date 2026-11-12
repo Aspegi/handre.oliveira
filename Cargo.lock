@@ -678,6 +678,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rnfc-watch"
+version = "0.1.0"
+dependencies = [
+ "rnfc-certchain",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
