@@ -21,3 +21,6 @@ safety_case_demo.md
 *.swp
 .DS_Store
 mavlink_signing_ts.txt
+
+kani-bundle.tar.gz
+*.tar.gz
