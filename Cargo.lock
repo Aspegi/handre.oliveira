@@ -684,6 +684,10 @@ dependencies = [
 [[package]]
 name = "rnfc-omni"
 version = "0.1.0"
+dependencies = [
+ "rnfc-certchain",
+ "rnfc-core",
+]
 
 [[package]]
 name = "rnfc-scc"
