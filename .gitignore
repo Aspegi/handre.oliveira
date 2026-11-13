@@ -40,3 +40,7 @@ swarm_safety_case.md
 # WireGuard keys (never commit)
 *.key
 deploy/wireguard/*.key
+
+# Secure Boot keys (NEVER commit)
+security/secure_boot/*.pem
+security/secure_boot/*.key
