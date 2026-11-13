@@ -580,6 +580,7 @@ dependencies = [
  "rnfc-lnn",
  "rnfc-mavlink",
  "rnfc-physics-6dof",
+ "rotor-rs",
 ]
 
 [[package]]

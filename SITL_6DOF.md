@@ -82,3 +82,25 @@ Alt error:  0.05 m
 MAVLink packets sent: 297
 FDIR alerts:          3
 ```
+---
+
+## Update: Se3Control attempt (v5.4.0, reverted)
+
+A 5th attempt used `rotor-rs::se3::Se3Control` (Lee 2010 geometric controller),
+which is the correct theoretical solution. The integration failed:
+
+```
+Final pos: [544.12, 0.00, -68884.30]
+Waypoints reached: 0/3
+```
+
+The drone climbed to 68 km altitude. The cause is a **scale mismatch** between
+the `Se3Control` output and what `QuadrotorSim::step()` expects. The `rotor-rs`
+tests pass, so the controller works in isolation — the integration is wrong.
+
+This confirms that multi-waypoint 6-DOF is **research-grade**, not a session
+of coding. The correct next step is to read the `rotor-rs` source to understand
+the exact unit conventions of `Se3Control::update()`, not to try a 6th variant.
+
+The multi-waypoint experiment is **closed**. Single waypoint is validated.
+

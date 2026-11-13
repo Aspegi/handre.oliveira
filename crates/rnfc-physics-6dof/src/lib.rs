@@ -1,8 +1,4 @@
 ﻿//! 6-DOF quadrotor physics using rotor-rs (RotorPy port).
-//!
-//! Wraps `rotor_rs::Multirotor` behind a simple interface that the
-//! RNFC NavCore can drive. Exposes true 6-DOF state (position, velocity,
-//! quaternion, body rates) and accepts per-rotor thrust commands.
 
 use rotor_rs::{Multirotor, QuadParamsInput, RotorForce, State, Vec3, Quat};
 use rnfc_abstractions::{GnssFix, ImuSample};
@@ -10,6 +6,7 @@ use rnfc_abstractions::{GnssFix, ImuSample};
 pub struct QuadrotorSim {
     veh: Multirotor<f64, RotorForce>,
     state: State<f64>,
+    params: QuadParamsInput,
     t: f64,
 }
 
@@ -48,10 +45,9 @@ impl QuadrotorSim {
             wind: Vec3::new(0.0, 0.0, 0.0),
             rotor_speeds: [0.0; 4],
         };
-        Self { veh, state, t: 0.0 }
+        Self { veh, state, params, t: 0.0 }
     }
 
-    /// Step the physics with rotor thrusts [N] for dt seconds.
     pub fn step(&mut self, thrusts: [f64; 4], dt: f64) {
         self.state = self.veh.step(&self.state, &thrusts, dt);
         self.t += dt;
@@ -79,6 +75,9 @@ impl QuadrotorSim {
         [roll, pitch, yaw]
     }
 
+    pub fn params(&self) -> &QuadParamsInput { &self.params }
+    pub fn rotor_state(&self) -> &State<f64> { &self.state }
+
     pub fn imu(&self, dt: f32) -> ImuSample {
         ImuSample { accel: [0.0, 0.0, -9.81], gyro: [0.0, 0.0, 0.0], dt }
     }
@@ -97,7 +96,7 @@ mod tests {
     #[test]
     fn hover_holds_altitude() {
         let mut sim = QuadrotorSim::new();
-        let hover = (9.81 * 1.0 / 4.0) as f64;
+        let hover = 2.5274_f64;
         for _ in 0..100 { sim.step([hover; 4], 0.01); }
         let z = sim.position()[2];
         assert!(z.abs() < 5.0, "z={}", z);
@@ -106,11 +105,23 @@ mod tests {
     #[test]
     fn forward_thrust_moves_forward() {
         let mut sim = QuadrotorSim::new();
-        let hover = (9.81 * 1.0 / 4.0) as f64;
+        let hover = 2.5274_f64;
         for _ in 0..50 {
             sim.step([hover * 0.5, hover * 0.5, hover * 1.5, hover * 1.5], 0.01);
         }
         let x = sim.position()[0];
         assert!(x.abs() > 0.001, "x={}", x);
+    }
+
+    #[test]
+    fn params_accessor_works() {
+        let sim = QuadrotorSim::new();
+        assert_eq!(sim.params().mass, 1.0);
+    }
+
+    #[test]
+    fn rotor_state_accessor_works() {
+        let sim = QuadrotorSim::new();
+        assert_eq!(sim.rotor_state().x.x, 0.0);
     }
 }

@@ -6,6 +6,7 @@ authors = ["Andre Oliveira <handre.oliveira@gmail.com>"]
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+rotor-rs = "0.1"
 rnfc-physics-6dof = { path = "../rnfc-physics-6dof" }
 rnfc-abstractions = { path = "../rnfc-abstractions" }
 rnfc-core = { path = "../rnfc-core" }
