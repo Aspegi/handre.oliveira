@@ -22,6 +22,7 @@ members = [
     "crates/rnfc-anchor",
     "crates/rnfc-alert",
     "crates/rnfc-magnav-hw",
+    "crates/rnfc-hal-pixhawk",
     "crates/rnfc-physics-6dof",
     "crates/rnfc-mavlink",
     "crates/rnfc-surveillance",
@@ -37,6 +38,7 @@ license = "MIT OR Apache-2.0"
 panic = "abort"
 lto = true
 codegen-units = 1
+
 
 
 

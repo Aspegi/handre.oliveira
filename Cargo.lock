@@ -652,6 +652,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rnfc-hal-pixhawk"
+version = "0.1.0"
+dependencies = [
+ "embedded-hal",
+ "rnfc-abstractions",
+ "rnfc-hal",
+]
+
+[[package]]
 name = "rnfc-hase"
 version = "0.1.0"
 dependencies = [
