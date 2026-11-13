@@ -44,3 +44,7 @@ deploy/wireguard/*.key
 # Secure Boot keys (NEVER commit)
 security/secure_boot/*.pem
 security/secure_boot/*.key
+
+# SBOM outputs (generated, not committed)
+security/sbom/*.json
+rnfc-sbom.*.json

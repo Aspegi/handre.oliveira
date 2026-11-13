@@ -1,17 +1,16 @@
-# Configuracao do cargo-deny para o RNFC
-# Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
-
-[graph]
-targets = []
+﻿# cargo-deny configuration — supply chain policy for RNFC
+# Docs: https://embarkstudios.github.io/cargo-deny/
 
 [advisories]
-# A partir do cargo-deny 0.16, 'unmaintained' espera um escopo:
-# "all", "workspace", "transitive" ou "none".
-unmaintained = "workspace"
-yanked = "warn"
-ignore = []
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+ignore = [
+    # Add advisory IDs here with expiration dates, e.g.:
+    # "RUSTSEC-0000-0000", # expires 2026-12-31 — reason
+]
 
 [licenses]
+unused-allowed-license = "allow"
 allow = [
     "MIT",
     "Apache-2.0",
@@ -20,18 +19,33 @@ allow = [
     "BSD-3-Clause",
     "ISC",
     "Unicode-3.0",
-    "Zlib",
-    "Unlicense",
+    "Unicode-DFS-2016",
     "CC0-1.0",
+    "Zlib",
+    "MPL-2.0",
+    "OpenSSL",
 ]
-confidence-threshold = 0.8
+confidence-threshold = 0.9
 
 [bans]
 multiple-versions = "warn"
-wildcards = "allow"
-deny = []
+wildcards = "deny"
+highlight = "all"
+deny = [
+    # Crates we do not want in the graph:
+    # { name = "openssl", reason = "use rustls instead" },
+]
+skip = [
+    # Crates we allow to be duplicated:
+    # { name = "bitflags", version = "=1.3.2" },
+]
 
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+
+# Do not let build scripts fetch from the network
+[bans.workspace-dependencies]
+duplicates = "warn"

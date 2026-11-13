@@ -43,6 +43,41 @@ jobs:
       - name: cargo fmt --check
         run: cargo fmt --all -- --check
 
+  supply-chain:
+    name: Supply chain (audit + deny)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: cargo audit (RustSec advisories)
+        run: cargo audit --deny warnings
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+      - name: cargo deny (license + bans + sources)
+        run: cargo deny check
+
+  sbom:
+    name: SBOM (CycloneDX + SPDX)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: psastras/sbom-rs/actions/install-cargo-sbom@cargo-sbom-latest
+      - name: Generate CycloneDX SBOM
+        run: cargo sbom --output-format cyclone_dx_json_1_6 > rnfc-sbom.cdx.json
+      - name: Generate SPDX SBOM
+        run: cargo sbom --output-format spdx_json_2_3 > rnfc-sbom.spdx.json
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            rnfc-sbom.cdx.json
+            rnfc-sbom.spdx.json
+
   embedded:
     name: Cortex-M4F builds
     runs-on: ubuntu-latest
