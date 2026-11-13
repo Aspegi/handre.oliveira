@@ -7,8 +7,8 @@ fn main() {
     println!("=== 6-DOF Flight Demo ===\n");
 
     let mut sim = QuadrotorSim::new();
-    // Default mass = 1.0 kg, so hover thrust per rotor = mg/4 = 2.4525 N
-    let hover = 2.4525_f64;
+    // Calibrated hover thrust (empirical, rotor-rs default params)
+    let hover = 2.5274_f64;  // calibrated for rotor-rs default params
     let dt = 0.01_f64;
 
     let p0 = sim.position();
