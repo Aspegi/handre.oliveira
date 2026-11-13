@@ -1,4 +1,4 @@
-// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+﻿// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
 // Autor: Andre Oliveira <handre.oliveira@gmail.com>
 // Projeto: RNFC - Resilient Navigation & Flight Control
 // Licenca: Proprietaria (ver LICENSE)
@@ -11,6 +11,8 @@
 #![allow(clippy::erasing_op)]
 #![allow(clippy::identity_op)]
 #![allow(clippy::new_without_default)]
+
+pub mod control;
 
 pub mod attitude;
 pub mod attitude_controller;
