@@ -226,6 +226,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e9c71c2167ca323c882b99918929403426e2373ea17242ff5653e0d5e1058be"
 
 [[package]]
+name = "embedded-hal"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
+
+[[package]]
 name = "futures-core"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -667,6 +673,16 @@ dependencies = [
  "libm",
  "rnfc-abstractions",
  "rnfc-core",
+]
+
+[[package]]
+name = "rnfc-magnav-hw"
+version = "0.1.0"
+dependencies = [
+ "embedded-hal",
+ "libm",
+ "rnfc-certchain",
+ "rnfc-magnav",
 ]
 
 [[package]]

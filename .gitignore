@@ -48,3 +48,6 @@ security/secure_boot/*.key
 # SBOM outputs (generated, not committed)
 security/sbom/*.json
 rnfc-sbom.*.json
+
+# MagNav dataset (downloaded, not committed)
+data/magnav/

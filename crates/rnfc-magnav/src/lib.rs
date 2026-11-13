@@ -1,6 +1,6 @@
-#![allow(clippy::needless_range_loop)]
+﻿#![allow(clippy::needless_range_loop)]
 #![allow(clippy::new_without_default)]
-//! MagNav — Quantum Magnetometry for GPS-Denied Navigation.
+//! MagNav â€” Quantum Magnetometry for GPS-Denied Navigation.
 //!
 //! Real MagNav systems use pre-surveyed magnetic anomaly maps to provide
 //! absolute position without GPS. This crate simulates the full pipeline:
@@ -11,7 +11,7 @@
 //!
 //! The estimate is wrapped as a `GnssFix` so the existing `NavCore` (Kalman)
 //! can fuse it exactly as it would a GNSS signal. This means the drone can
-//! navigate with ZERO GNSS — only IMU prediction + MagNav correction.
+//! navigate with ZERO GNSS â€” only IMU prediction + MagNav correction.
 //!
 //! Threat model: GPS jamming/spoofing is completely defeated because the drone
 //! never uses GNSS. Quantum magnetometers measure the local field directly
@@ -22,6 +22,7 @@ use rnfc_abstractions::GnssFix;
 
 // ============ MAGNETIC ANOMALY MAP ============
 /// 2D pre-surveyed magnetic anomaly map (uT field strength per cell).
+#[derive(Clone)]
 pub struct MagneticAnomalyMap {
     pub origin: [f32; 2], // (north, east) of cell (0, 0)
     pub resolution: f32,  // metres per cell
@@ -87,7 +88,7 @@ impl QuantumMagSensor {
         Self { map, noise_ut }
     }
 
-    /// Measures the field at true_pos with additive noise (clamped to ±noise_ut).
+    /// Measures the field at true_pos with additive noise (clamped to Â±noise_ut).
     pub fn measure(&self, true_pos: [f32; 2], noise_ut: f32) -> f32 {
         let truth = self.map.lookup(true_pos).unwrap_or(50.0);
         truth + noise_ut.clamp(-self.noise_ut, self.noise_ut)
@@ -109,7 +110,7 @@ impl MagNavEstimator {
         }
     }
 
-    /// Finds the position within ±search_radius of prior whose map value
+    /// Finds the position within Â±search_radius of prior whose map value
     /// is closest to the measurement. Returns prior on NaN input.
     pub fn estimate(
         &self,
@@ -254,7 +255,7 @@ mod tests {
 
     #[test]
     fn gps_denied_navigation_succeeds() {
-        // Drone flies 5m east (5m/s for 1s) WITHOUT any GNSS — only MagNav.
+        // Drone flies 5m east (5m/s for 1s) WITHOUT any GNSS â€” only MagNav.
         let sensor = make_sensor();
         let est = MagNavEstimator::new();
 
