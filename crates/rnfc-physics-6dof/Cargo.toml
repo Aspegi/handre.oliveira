@@ -1,0 +1,10 @@
+﻿[package]
+name = "rnfc-physics-6dof"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+rotor-rs = "0.1"
+rnfc-abstractions = { path = "../rnfc-abstractions" }
+rnfc-core = { path = "../rnfc-core" }
