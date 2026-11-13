@@ -104,3 +104,38 @@ the exact unit conventions of `Se3Control::update()`, not to try a 6th variant.
 
 The multi-waypoint experiment is **closed**. Single waypoint is validated.
 
+---
+
+## Final Decision: Multi-Waypoint 6-DOF Closed (9 attempts)
+
+After 9 attempts with 4 controller architectures, multi-waypoint 6-DOF
+in the linear PID is declared **out of scope**. The record:
+
+| Attempt | Architecture | Result |
+|---|---|---|
+| 1 | Waypoints simples | Divergiu wp1 |
+| 2 | + Rate limiting | Divergiu wp1 |
+| 3 | + Speed profile + PID altitude | Divergiu wp1 |
+| 4 | A* grid | Divergiu wp1 |
+| 5 | Se3Control (Lee 2010) | 68 km altitude |
+| 6 | Se3Control + Z-fix | 489 km altitude |
+| 7 | Se3Control + hover_cal | 2/3, divergiu wp2 |
+| 8 | Se3Control + settle | 2/3, divergiu wp2 |
+| 9 | PID + hold-in-place | 1/3, 280 m/s |
+
+**Root cause:** the linear PID (and the `Se3Control` without trajectory
+tracking) cannot arrest the coupled inertia during 90°+ waypoint
+transitions in 6-DOF. The drone reaches wp0, starts turning, and the
+coupled roll/pitch/yaw dynamics cause the controller to saturate.
+
+**What works:**
+- Single waypoint 6-DOF: 4cm error (v5.3.0)
+- Multi-waypoint 1D: mission A→B→C (main.rs)
+
+**What would fix it (research, 2-3 days):**
+- Minimum-snap trajectory generation (Mellinger 2011)
+- OR geometric controller with trajectory tracking (not waypoint jumps)
+
+The multi-waypoint 6-DOF experiment is **closed**. The single waypoint
+is the validated state of the 6-DOF SITL.
+
