@@ -1,0 +1,13 @@
+﻿# WireGuard config — ground station (10.0.0.1)
+# Replace <GCS_PRIVATE_KEY> and <DRONE_PUBLIC_KEY> before use.
+
+[Interface]
+Address = 10.0.0.1/24
+PrivateKey = <GCS_PRIVATE_KEY>
+ListenPort = 51820
+
+[Peer]
+# Drone
+PublicKey = <DRONE_PUBLIC_KEY>
+AllowedIPs = 10.0.0.2/32
+PersistentKeepalive = 25

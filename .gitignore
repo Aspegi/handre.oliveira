@@ -36,3 +36,7 @@ watch_*.ppm
 anomaly_report_*.md
 full_mission_report.md
 swarm_safety_case.md
+
+# WireGuard keys (never commit)
+*.key
+deploy/wireguard/*.key

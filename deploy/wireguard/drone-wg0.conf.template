@@ -1,0 +1,15 @@
+﻿# WireGuard config — drone companion (10.0.0.2)
+# Replace <DRONE_PRIVATE_KEY> and <GCS_PUBLIC_KEY> before use.
+# Generate keys with: wg genkey | tee drone_private.key | wg pubkey > drone_public.key
+
+[Interface]
+Address = 10.0.0.2/24
+PrivateKey = <DRONE_PRIVATE_KEY>
+ListenPort = 51820
+
+[Peer]
+# Ground station
+PublicKey = <GCS_PUBLIC_KEY>
+Endpoint = <GCS_PUBLIC_IP>:51820
+AllowedIPs = 10.0.0.1/32
+PersistentKeepalive = 25
