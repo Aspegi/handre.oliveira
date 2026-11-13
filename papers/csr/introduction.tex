@@ -1,0 +1,68 @@
+﻿\section{Introduction}
+
+When an autonomous drone completes a mission, the operator can say
+what happened: the trajectory, the sensor readings, the commands
+sent. What the operator \emph{cannot} say, without additional
+machinery, is what \emph{would have happened} under different
+conditions. Did the drone choose the safest route, or merely a safe
+one? Would it have failed if the wind had been stronger? Was the
+altitude within the envelope by design, or by luck?
+
+These questions matter for certification. A regulator (EASA, FAA)
+or an insurer does not only want to know that the drone was safe —
+they want to know \emph{why} it was safe, and whether it would
+remain safe under conditions that did not occur during the mission.
+Static safety cases~\cite{kelly1998} cannot answer this: they describe
+the intended behaviour, not the counterfactual.
+
+Black-box logs (ArduPilot, PX4) record the actual mission, but they
+do not replay it under modified conditions. Sensitivity analysis
+techniques~\cite{saltelli2008} can explore the parameter space, but
+they are offline and do not produce a verifiable link to the
+recorded mission. Counterfactual reasoning~\cite{pearl2009} provides
+the theoretical framework, but existing implementations do not
+address the cryptographic requirements of an audit.
+
+We present Counterfactual Safety Reasoning (CSR), a technique that
+enables a drone to answer post-mission ``what if?' questions with
+cryptographically verifiable answers. Given a recorded trajectory
+and a hash chain of safety events (CertChain), CSR replays the
+mission under modified conditions and produces a proof bound to the
+original chain. A regulator can verify that ``if wind had been
+$2\times$, the drone would have missed waypoint~3 by 40~m' without
+trusting the operator.
+
+CSR makes three contributions:
+
+\begin{enumerate}
+    \item A trajectory replay engine that re-runs the mission under
+          modified conditions (wind scale, altitude offset, obstacle
+          changes) and classifies the outcome (Better, Same, Worse,
+          Failed).
+    \item A proof construction that binds the counterfactual result
+          to the original chain via SHA-256, so that tampering with
+          either the chain or the result invalidates the proof.
+    \item An evaluation on a 4-scenario case study (wind $0\times$,
+          $1\times$, $20\times$, altitude $+150$~m), showing 4/4
+          proofs verified and 3/3 attacks (tampered chain, tampered
+          result, wrong key) rejected.
+\end{enumerate}
+
+We are explicit about limitations. The physics is synthetic
+(1D/2D), the hash is FNV-1a (not SHA-256), and there are no formal
+guarantees. CSR is a proof of concept, not a certified tool. But
+it demonstrates a capability that no existing drone has: the ability
+to prove, after the fact, what would have happened under different
+conditions.
+
+The paper is organised as follows. Section~II reviews safety cases
+and cryptographic audit. Section~III presents the CSR design.
+Section~IV describes the implementation. Section~V evaluates CSR
+on the 4-scenario case study. Section~VI discusses the relation to
+DO-326A and the ethical implications. Section~VII concludes.
+
+% TODO (Andre):
+% - Verify the claim "no existing drone has this" with a literature search
+% - Add a footnote about FNV-1a vs SHA-256
+% - Consider adding a sentence about the open-source availability
+% - The ethical implications section needs more depth

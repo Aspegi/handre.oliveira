@@ -1,0 +1,71 @@
+﻿\section{Introduction}
+
+Safety cases are the primary mechanism by which aviation authorities
+(EASA, FAA) assess whether an autonomous system is acceptably safe.
+A safety case is a structured argument, typically expressed in Goal
+Structuring Notation (GSN)~\cite{kelly1998}, that links high-level
+safety goals to concrete evidence. For unmanned aerial vehicles
+(UAVs), the safety case must cover the entire envelope: speed,
+altitude, obstacle clearance, and failure modes.
+
+The problem is that safety cases are \emph{static}. They are written
+once, reviewed once, and then disconnected from the runtime behaviour
+they are meant to assure. When the drone flies, nothing in the safety
+case changes — even if a sensor degrades, a motor fails, or the
+operator sends an unsafe command. The evidence is frozen in time.
+
+This disconnect has two consequences. First, the safety case cannot
+detect when the system drifts outside the envelope it was certified
+for. Second, there is no mechanism to \emph{regenerate} the safety
+case when requirements change. A single-line change in a requirement
+(e.g., \texttt{speed\_max: 10.0} to \texttt{speed\_max: 8.0}) requires
+manual updates to the tests, the GSN nodes, and the audit trail —
+a process that is error-prone and rarely performed.
+
+We present SCC (Safety Case Compiler), a tool that compiles safety
+requirements into executable evidence. SCC takes a small DSL of
+requirements (speed, altitude, obstacle clearance) and produces
+three artefacts per requirement:
+
+\begin{enumerate}
+    \item A Rust test stub that verifies the invariant at runtime.
+    \item A GSN node that links the requirement to its evidence.
+    \item A cryptographic block in a hash chain (CertChain) that
+          records the compiled requirement.
+\end{enumerate}
+
+The key property is \emph{single source of truth}: changing one line
+in the requirements file regenerates all three artefacts and
+re-validates the chain. There is no manual synchronisation, and no
+possibility of the GSN node disagreeing with the test.
+
+We evaluate SCC on a 3-requirement UAV envelope (speed $\leq 10$~m/s,
+altitude in $[5, 120]$~m, obstacle clearance $\geq 2$~m). The
+compiler produces 3 tests, 3 GSN nodes, and a 3-block chain in
+under 100~ms. A single-line change regenerates all artefacts and
+the chain re-validates. SCC is implemented in Rust (\texttt{no\_std}
+compatible) and tested with 10 unit tests.
+
+The contributions of this paper are:
+
+\begin{itemize}
+    \item A DSL for safety requirements that compiles to executable
+          evidence (tests + GSN + chain blocks).
+    \item A compiler architecture that guarantees consistency between
+          the three artefacts.
+    \item An integration with a hash chain that makes the safety case
+          tamper-evident and auditable.
+    \item An evaluation on a UAV envelope, including a demonstration
+          that a single-line change regenerates all artefacts.
+\end{itemize}
+
+The paper is organised as follows. Section~II reviews safety cases
+and runtime verification. Section~III presents the SCC design.
+Section~IV describes the implementation. Section~V evaluates SCC
+on the UAV envelope. Section~VI discusses the relation to DO-326A
+and open problems. Section~VII concludes.
+
+% TODO (Andre):
+% - Verify the claim "under 100 ms" with a real measurement
+% - Add a footnote about the no_std compatibility
+% - Consider adding a sentence about the open-source availability
