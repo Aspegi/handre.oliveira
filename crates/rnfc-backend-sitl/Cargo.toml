@@ -15,4 +15,13 @@ rnfc-mavlink = { path = "../rnfc-mavlink" }
 rnfc-fdir = { path = "../rnfc-fdir" }
 rnfc-lnn = { path = "../rnfc-lnn" }
 
-
+[dev-dependencies]
+rnfc-alert = { path = "../rnfc-alert" }
+rnfc-anchor = { path = "../rnfc-anchor" }
+rnfc-counterfactual = { path = "../rnfc-counterfactual" }
+rnfc-decision = { path = "../rnfc-decision" }
+rnfc-mavsign = { path = "../rnfc-mavsign" }
+rnfc-omni = { path = "../rnfc-omni" }
+rnfc-scc = { path = "../rnfc-scc" }
+rnfc-watch = { path = "../rnfc-watch" }
+rnfc-certchain = { path = "../rnfc-certchain" }

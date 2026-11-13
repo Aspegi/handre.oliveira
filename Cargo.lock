@@ -580,12 +580,21 @@ name = "rnfc-backend-sitl"
 version = "0.1.0"
 dependencies = [
  "rnfc-abstractions",
+ "rnfc-alert",
+ "rnfc-anchor",
+ "rnfc-certchain",
  "rnfc-core",
+ "rnfc-counterfactual",
  "rnfc-daa",
+ "rnfc-decision",
  "rnfc-fdir",
  "rnfc-lnn",
  "rnfc-mavlink",
+ "rnfc-mavsign",
+ "rnfc-omni",
  "rnfc-physics-6dof",
+ "rnfc-scc",
+ "rnfc-watch",
  "rotor-rs",
 ]
 
