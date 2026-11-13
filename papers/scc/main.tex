@@ -1,8 +1,6 @@
-﻿% Paper SCC — Abstract & Structure
-% Target: SAFECOMP 2027 (deadline ~Março 2027) or DASC 2027 (deadline ~Junho 2027)
-
-\documentclass[conference]{IEEEtran}
-\usepackage{cite,amsmath,amssymb,graphicx,hyperref,listings}
+﻿\documentclass[conference]{IEEEtran}
+\usepackage{cite,amsmath,amssymb,graphicx,hyperref,listings,tikz}
+\usetikzlibrary{positioning,shapes,arrows}
 
 \title{SCC: A Safety Case Compiler for Autonomous Drones}
 \author{Andre Oliveira\\RNFC Project\\\texttt{handre.oliveira@gmail.com}}
@@ -22,62 +20,20 @@ demonstrate SCC on a 3-requirement UAV envelope (speed, altitude,
 obstacle clearance), showing that a single-line change regenerates
 all artefacts and re-validates the chain. SCC is implemented in
 Rust (\texttt{no\_std} compatible) and evaluated on 10 unit tests
-and 1 end-to-end demo. We discuss how SCC integrates with the
-DO-326A security process and identify open problems.
+and 1 end-to-end demo.
 \end{abstract}
 
 \begin{IEEEkeywords}
 safety case, certification, GSN, Rust, UAV, DO-326A
 \end{IEEEkeywords}
 
-\section{Introduction}
-% 1. Problem: safety cases are static, disconnected from runtime
-% 2. Gap: no tooling from requirements to executable evidence
-% 3. Contribution: SCC compiles requirements to 3 artefacts
-% 4. Results: 10 tests, 1 demo, 3 artefacts per requirement
+\input{introduction}
 
-\section{Background}
-\subsection{Safety Cases and GSN}
-% GSN (Kelly 1998), static safety cases, EASA SC-VTOL
-\subsection{Runtime Verification}
-% Runtime monitors, CertChain (hash chain for safety events)
-\subsection{Existing Tools}
-% SafeCert, BusbySim — static; no compilation to executable proof
+\input{body}
 
-\section{SCC Design}
-\subsection{DSL}
-% requirements.safety: speed_max: 10.0 HIGH
-\subsection{Compilation Pipeline}
-% parse -> test stubs + GSN + chain blocks
-\subsection{Why Rust}
-% no_std, deterministic, hash chain (SHA-256)
-
-\section{Implementation}
-\subsection{Crate Structure}
-% rnfc-scc (160 lines), 10 tests
-\subsection{Integration with CertChain}
-% Each requirement = one chain block
-
-\section{Evaluation}
-\subsection{Case Study: 3-Requirement Envelope}
-% speed_max=10, altitude_range=5-120, obstacle_clearance=2
-\subsection{Results}
-% 3 requirements -> 3 tests + 3 GSN nodes + 3 chain blocks
-% Single-line change regenerates all 3 artefacts
-\subsection{Limitations}
-% Only 3 requirement types; no quantifier support; synthetic physics
-
-\section{Discussion}
-\subsection{Relation to DO-326A}
-% SCC provides evidence for SEC-* requirements
-\subsection{Open Problems}
-% Formal semantics for DSL; composition of safety cases
-
-\section{Conclusion}
-% SCC compiles requirements to executable evidence. Future:
-% integrate with runtime monitors, support quantifiers.
+\input{fig_pipeline}
 
 \bibliographystyle{IEEEtran}
-\bibliography{references}
+\bibliography{../references}
 
 \end{document}

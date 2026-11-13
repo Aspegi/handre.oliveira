@@ -1,8 +1,6 @@
-﻿% Paper CSR — Abstract & Structure
-% Target: IEEE Aerospace 2027 (deadline ~Nov 2026) or DASC 2027
-
-\documentclass[conference]{IEEEtran}
-\usepackage{cite,amsmath,amssymb,graphicx,hyperref}
+﻿\documentclass[conference]{IEEEtran}
+\usepackage{cite,amsmath,amssymb,graphicx,hyperref,listings,tikz}
+\usetikzlibrary{positioning,shapes,arrows}
 
 \title{Counterfactual Safety Reasoning: Post-Mission What-If Proofs for Autonomous Drones}
 \author{Andre Oliveira\\RNFC Project\\\texttt{handre.oliveira@gmail.com}}
@@ -16,70 +14,24 @@ enables a drone to answer post-mission ``what if?' questions with
 cryptographically verifiable answers. Given a recorded trajectory and
 a hash chain of safety events, CSR replays the mission under modified
 conditions (e.g., wind $2\times$, altitude $+150$~m) and produces a
-proof bound to the original chain. A regulator can verify that
-``if wind had been $2\times$, the drone would have missed waypoint~3
-by 40~m' without trusting the operator. We demonstrate CSR on
-a 4-scenario case study (wind $0\times$, $1\times$, $20\times$,
-altitude $+150$~m), showing 4/4 proofs verified and 3/3 attacks
-(tampered chain, tampered result, wrong key) rejected. CSR is
-implemented in Rust and evaluated on 12 unit tests. We discuss
-how CSR complements static safety cases and its limitations
-(synthetic physics, FNV-1a hash, no formal guarantees).
+proof bound to the original chain. We demonstrate CSR on a 4-scenario
+case study (wind $0\times$, $1\times$, $20\times$, altitude $+150$~m),
+showing 4/4 proofs verified and 3/3 attacks (tampered chain, tampered
+result, wrong key) rejected. CSR is implemented in Rust and evaluated
+on 12 unit tests.
 \end{abstract}
 
 \begin{IEEEkeywords}
-counterfactual reasoning, safety certification, hash chain, UAV,
-post-mission analysis, audit
+counterfactual reasoning, safety certification, hash chain, UAV
 \end{IEEEkeywords}
 
-\section{Introduction}
-% 1. Problem: safety cases say "the drone was safe", not "why"
-% 2. Gap: no way to prove what would have happened under different conditions
-% 3. Contribution: CSR generates verified counterfactual proofs
-% 4. Results: 4/4 proofs, 3/3 attacks rejected
+\input{introduction}
 
-\section{Background}
-\subsection{Safety Cases and Black-Box Analysis}
-% Static safety cases, black-box logs (ArduPilot, PX4)
-\subsection{Cryptographic Audit}
-% Hash chains, Merkle trees, transparency logs
-\subsection{Counterfactual Reasoning}
-% Causal inference, sensitivity analysis (offline)
+\input{body}
 
-\section{CSR Design}
-\subsection{Trajectory Replay}
-% Re-run physics with modified conditions
-\subsection{Counterfactual Engine}
-% what_if_wind(scale), what_if_altitude(offset)
-\subsection{Proof Construction}
-% proof = SHA-256(chain_root || result_hash || scenario)
-
-\section{Implementation}
-\subsection{Crate Structure}
-% rnfc-counterfactual (250 lines), 12 tests
-\subsection{Integration with CertChain}
-% Original chain + counterfactual proofs stored together
-
-\section{Evaluation}
-\subsection{Case Study: 4 Scenarios}
-% wind 0x (Better), 1x (Same), 20x (Failed), altitude+150m (Failed)
-\subsection{Security Properties}
-% Tamper chain -> BadSignature; tamper result -> BadSignature
-% wrong key -> BadSignature
-\subsection{Limitations}
-% Synthetic physics; FNV-1a hash (not SHA-256); no formal guarantees
-
-\section{Discussion}
-\subsection{Relation to DO-326A}
-% CSR provides evidence for post-mission audit (SEC-12)
-\subsection{Ethical and Legal Considerations}
-% Who owns the counterfactual? Who can request it?
-
-\section{Conclusion}
-% CSR enables verified post-mission what-if analysis. Future:
-% real physics, formal verification, standardisation.
+\input{fig_arch}
 
 \bibliographystyle{IEEEtran}
-\bibliography{references}
+\bibliography{../references}
 
 \end{document}

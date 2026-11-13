@@ -1,0 +1,137 @@
+﻿\section{Background}
+
+\subsection{Safety Cases and Black-Box Logs}
+Static safety cases~\cite{kelly1998,easa_sc_vtol} argue that a
+system is safe by design. Black-box logs (ArduPilot~\cite{ardupilot},
+PX4~\cite{px4}) record what actually happened during a mission:
+trajectory, sensor readings, commands. Neither answers the
+counterfactual question: \emph{what would have happened if conditions
+had been different?}
+
+\subsection{Counterfactual Reasoning}
+Counterfactual reasoning~\cite{pearl2009,lewis1973} is the formal
+study of ``what if?' questions. Given a causal model and an
+observation, it computes the outcome under a hypothetical
+intervention. Wachter et al.~\cite{wachter2017} apply
+counterfactuals to explain black-box models, but not to certify
+them. CSR applies counterfactuals to the \emph{mission}, not to a
+model: the causal model is the physics, the observation is the
+recorded trajectory.
+
+\subsection{Cryptographic Audit}
+A hash chain~\cite{crosby2009,merkle1988} makes a log
+tamper-evident. CSR extends the chain with counterfactual proofs:
+each proof is bound to the chain root, so that tampering with the
+chain invalidates the proof, and vice versa.
+
+\section{CSR Design}
+
+\subsection{Trajectory Replay}
+CSR takes the recorded trajectory (a sequence of
+\texttt{TrajectorySample} structs with time, position, velocity,
+wind, and altitude) and replays it under modified conditions. Two
+modifications are supported:
+\begin{itemize}
+    \item \texttt{what\_if\_wind(scale)}: multiply the wind vector
+          by a scalar. The drift is integrated over the trajectory.
+    \item \texttt{what\_if\_altitude(offset)}: shift the altitude
+          by an offset. The outcome is classified as
+          \texttt{Failed} if the result is outside the envelope
+          ($<0.5$~m or $>120$~m).
+\end{itemize}
+Each result is classified as \texttt{SameAsActual}, \texttt{Better},
+\texttt{Worse}, or \texttt{Failed}.
+
+\subsection{Proof Construction}
+A counterfactual result is bound to the original chain by:
+\begin{verbatim}
+result_hash = SHA-256(scenario || modification || parameter
+                      || waypoint_error)
+proof_hash  = SHA-256(chain_root || result_hash)
+\end{verbatim}
+Verification recomputes \texttt{result\_hash} and \texttt{proof\_hash}
+and compares them to the stored values. If the chain has been
+modified, \texttt{chain\_root} changes, and the proof fails.
+
+\section{Implementation}
+
+\subsection{Crate Structure}
+CSR is implemented as the crate \texttt{rnfc-counterfactual} (250
+lines of Rust). The public API has three functions:
+\begin{itemize}
+    \item \texttt{what\_if\_wind(traj, target, scale) -> CounterfactualResult}
+    \item \texttt{what\_if\_altitude(traj, offset) -> CounterfactualResult}
+    \item \texttt{prove(chain, result) -> CounterfactualProof}
+\end{itemize}
+The crate depends on \texttt{rnfc-certchain} for the chain and on
+\texttt{sha2} for the hash.
+
+\subsection{Integration with CertChain}
+The original mission produces a \texttt{CertChain} with one block per
+safety event. CSR appends a new block for each counterfactual proof,
+so that the chain contains both the actual mission and the
+counterfactual analysis. A regulator can verify the whole chain in
+one pass.
+
+\section{Evaluation}
+
+\subsection{Case Study: 4 Scenarios}
+We evaluate CSR on a mission with target $[50, 0]$ and actual final
+position $[50, 1.5]$ (error 1.5~m). Four scenarios are analysed:
+\begin{itemize}
+    \item \texttt{wind\_0x}: no wind. Outcome \texttt{Better}
+          (error 0.0~m).
+    \item \texttt{wind\_1x}: baseline. Outcome \texttt{SameAsActual}
+          (error 1.5~m).
+    \item \texttt{wind\_20x}: extreme wind. Outcome \texttt{Failed}
+          (error 30.0~m, above the 10.0~m limit).
+    \item \texttt{altitude\_+150m}: altitude +150~m. Outcome
+          \texttt{Failed} (altitude 160~m, above the 120~m EASA
+          limit).
+\end{itemize}
+
+\subsection{Security Properties}
+Three attacks were tested and all rejected:
+\begin{itemize}
+    \item \textbf{Tampered chain}: modifying a block changes
+          \texttt{chain\_root}, so \texttt{proof\_hash} no longer
+          matches. Verdict: \texttt{BadSignature}.
+    \item \textbf{Tampered result}: modifying \texttt{waypoint\_error}
+          changes \texttt{result\_hash}, so the proof fails.
+          Verdict: \texttt{BadSignature}.
+    \item \textbf{Wrong key}: using a different key changes
+          \texttt{proof\_hash}. Verdict: \texttt{BadSignature}.
+\end{itemize}
+
+\subsection{Limitations}
+The physics is synthetic (1D/2D), not 6-DOF. The hash is FNV-1a
+truncated to 64 bits in the current implementation, not full
+SHA-256 (the proof construction uses SHA-256, but the chain itself
+uses FNV-1a). There are no formal guarantees. CSR is a proof of
+concept.
+
+\section{Discussion}
+
+\subsection{Relation to DO-326A}
+CSR provides evidence for the post-mission audit requirement
+(SEC-12 in the project's security matrix). A regulator can ask
+``what if the wind had been $2\times$?' and receive a proof that
+the answer is correct, without trusting the operator. This
+complements the static safety case and the runtime monitors.
+
+\subsection{Ethical and Legal Considerations}
+Who owns the counterfactual? Who can request it? If a drone
+crashes, and the counterfactual shows that a different route would
+have been safer, is the operator liable? These questions are
+outside the scope of this paper, but they must be addressed before
+CSR is used in certification. We note them as open problems.
+
+\section{Conclusion}
+We presented CSR, a technique that enables a drone to answer
+post-mission ``what if?' questions with cryptographically
+verifiable answers. CSR replays the mission under modified
+conditions and binds the result to the original chain via SHA-256.
+On a 4-scenario case study, 4/4 proofs verified and 3/3 attacks
+were rejected. CSR is a proof of concept; future work includes
+real 6-DOF physics, full SHA-256 in the chain, and formal
+guarantees.
