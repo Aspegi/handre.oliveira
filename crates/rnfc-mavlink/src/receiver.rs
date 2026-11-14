@@ -1,5 +1,5 @@
-//! MAVLink v2 receiver with signature verification and IDS.
-//! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+﻿//! MAVLink v2 receiver with signature verification and IDS.
+//! Copyright (c) 2026 Andre Oliveira. Todos os direitos reservados.
 #![deny(unsafe_code)]
 
 use sha2::{Digest, Sha256};
@@ -232,7 +232,7 @@ impl MavlinkReceiver {
         }
     }
 
-    /// Wrapper publico para fuzzing — NAO usar em producao.
+    /// Wrapper publico para fuzzing â€” NAO usar em producao.
     /// Alimenta bytes diretamente ao parser sem passar pelo socket.
     /// Permite ao cargo-fuzz explorar o parser com bytes arbitrarios.
     pub fn feed_bytes(&mut self, data: &[u8]) {

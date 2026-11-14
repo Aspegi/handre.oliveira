@@ -1,5 +1,5 @@
-//! Geodetic <-> NED conversion.
-//! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+﻿//! Geodetic <-> NED conversion.
+//! Copyright (c) 2026 Andre Oliveira. Todos os direitos reservados.
 #![deny(unsafe_code)]
 
 use nav_types::{NED, WGS84};

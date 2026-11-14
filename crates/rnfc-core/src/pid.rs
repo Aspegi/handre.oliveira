@@ -1,4 +1,4 @@
-// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+﻿// Copyright (c) 2026 Andre Oliveira. Todos os direitos reservados.
 // Autor: Andre Oliveira <handre.oliveira@gmail.com>
 // Projeto: RNFC - Resilient Navigation & Flight Control
 // Licenca: Proprietaria (ver LICENSE)
@@ -56,7 +56,7 @@ impl PidController {
 
         let output = self.kp * error + self.ki * self.integral + self.kd * derivative;
 
-        // SaturaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o da saida
+        // SaturaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o da saida
         if output > self.output_limit {
             self.output_limit
         } else if output < -self.output_limit {
@@ -97,7 +97,7 @@ mod verification {
         kani::assert(output.is_finite(), "output finite");
     }
 
-    /// Prova que o PID nÃƒÆ’Ã‚Â£o entra em panic com entradas razoÃƒÆ’Ã‚Â¡veis.
+    /// Prova que o PID nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o entra em panic com entradas razoÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡veis.
     #[kani::proof]
     #[kani::unwind(4)]
     fn pid_no_panic() {

@@ -1,5 +1,5 @@
-//! Math abstractions: libm in production, pure Rust for Kani verification.
-//! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+﻿//! Math abstractions: libm in production, pure Rust for Kani verification.
+//! Copyright (c) 2026 Andre Oliveira. Todos os direitos reservados.
 #![deny(unsafe_code)]
 
 /// Normaliza um angulo para o intervalo [-pi, pi] SEM loops.

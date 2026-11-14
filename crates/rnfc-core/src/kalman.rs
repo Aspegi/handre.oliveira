@@ -1,11 +1,11 @@
-#![allow(unexpected_cfgs)]
-// Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+﻿#![allow(unexpected_cfgs)]
+// Copyright (c) 2026 Andre Oliveira. Todos os direitos reservados.
 // Autor: Andre Oliveira <handre.oliveira@gmail.com>
 // Projeto: RNFC - Resilient Navigation & Flight Control
 // Licenca: Proprietaria (ver LICENSE)
 #![deny(unsafe_code)]
 
-/// Filtro de Kalman 3-eixos (NED): posiÃ§Ã£o e velocidade por eixo.
+/// Filtro de Kalman 3-eixos (NED): posiÃƒÂ§ÃƒÂ£o e velocidade por eixo.
 pub struct Kalman3D {
     pub x: [[f32; 2]; 3],
     pub p: [[[f32; 2]; 2]; 3],

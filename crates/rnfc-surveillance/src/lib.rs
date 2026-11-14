@@ -1,5 +1,5 @@
-//! Surveillance payloads for the RNFC.
-//! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+﻿//! Surveillance payloads for the RNFC.
+//! Copyright (c) 2026 Andre Oliveira. Todos os direitos reservados.
 #![deny(unsafe_code)]
 
 /// Estado do drone relevante para a vigilancia (lido do NavCore, nao o altera).
@@ -12,7 +12,7 @@ pub struct SurveillanceContext {
     pub hovering: bool,
 }
 
-/// Contrato genÃƒÂ©rico para qualquer sensor de vigilancia.
+/// Contrato genÃƒÆ’Ã‚Â©rico para qualquer sensor de vigilancia.
 pub trait Payload {
     type Error;
     type Frame;

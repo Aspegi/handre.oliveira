@@ -1,5 +1,5 @@
 ﻿//! ISR backend - patrol loop + camera/mic payload + MAVLink video.
-//! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+//! Copyright (c) 2026 Andre Oliveira. Todos os direitos reservados.
 #![deny(unsafe_code)]
 #![allow(clippy::manual_div_ceil)]
 #![allow(clippy::useless_vec)]

@@ -1,5 +1,5 @@
-//! MAVLink v2 encoder with optional signing for the RNFC.
-//! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+﻿//! MAVLink v2 encoder with optional signing for the RNFC.
+//! Copyright (c) 2026 Andre Oliveira. Todos os direitos reservados.
 #![deny(unsafe_code)]
 
 use sha2::{Digest, Sha256};

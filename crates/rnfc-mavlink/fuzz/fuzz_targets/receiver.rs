@@ -1,5 +1,5 @@
-//! Fuzz target for the MAVLink receiver.
-//! Copyright (c) 2027 Andre Oliveira. Todos os direitos reservados.
+﻿//! Fuzz target for the MAVLink receiver.
+//! Copyright (c) 2026 Andre Oliveira. Todos os direitos reservados.
 //! Objetivo: provar que nenhum pacote malformado faz o receiver entrar em panic.
 #![no_main]
 
