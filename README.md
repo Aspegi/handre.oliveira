@@ -128,6 +128,13 @@ non-critical processing and certification on the companion/ground.
 
 ---
 
+
+## Preprints
+
+| Paper | DOI |
+|---|---|
+| SCC: A Safety Case Compiler for Autonomous Drones | [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24219191.svg)](https://doi.org/10.5281/zenodo.24219191) |
+| Counterfactual Safety Reasoning: Post-Mission What-If Proofs | [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24219683.svg)](https://doi.org/10.5281/zenodo.24219683) |
 ## License
 
 Dual-licensed under MIT OR Apache-2.0. See `LICENSE-MIT`.
